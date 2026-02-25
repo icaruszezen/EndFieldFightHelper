@@ -10,14 +10,12 @@ namespace EndFieldFightHelper.Services;
 
 public sealed class OverlayService : IDisposable
 {
-    private readonly SettingsViewModel _settingsViewModel;
     private OverlayWindow? _window;
     private bool _lastClickThrough;
     private OverlayViewModel? _overlayViewModel;
 
-    public OverlayService(SettingsViewModel settingsViewModel)
+    public OverlayService()
     {
-        _settingsViewModel = settingsViewModel;
     }
 
     public void ApplySettings(
@@ -29,10 +27,10 @@ public sealed class OverlayService : IDisposable
         double height,
         double opacity)
     {
-        _lastClickThrough = clickThrough;
-
         Dispatcher.UIThread.Post(() =>
         {
+            _lastClickThrough = clickThrough;
+
             if (!enabled)
             {
                 HideWindow();
@@ -40,6 +38,8 @@ public sealed class OverlayService : IDisposable
             }
 
             var window = EnsureWindow();
+            if (window == null) return;
+
             window.Opacity = Math.Clamp(opacity, 0.1, 1.0);
             window.Width = Math.Max(50, width);
             window.Height = Math.Max(30, height);
@@ -50,20 +50,22 @@ public sealed class OverlayService : IDisposable
                 window.Show();
             }
 
-            ApplyClickThrough(window, _lastClickThrough);
+            ApplyClickThrough(window, clickThrough);
         });
     }
 
-    private OverlayWindow EnsureWindow()
+    private OverlayWindow? EnsureWindow()
     {
         if (_window != null)
         {
             return _window;
         }
 
+        if (_overlayViewModel == null) return null;
+
         _window = new OverlayWindow
         {
-            DataContext = _overlayViewModel != null ? _overlayViewModel : _settingsViewModel
+            DataContext = _overlayViewModel
         };
         _window.Opened += (_, _) => ApplyClickThrough(_window, _lastClickThrough);
         _window.Closed += (_, _) => _window = null;

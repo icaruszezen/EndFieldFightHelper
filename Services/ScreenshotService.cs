@@ -11,9 +11,9 @@ public class ScreenshotService : IScreenshotService
 
     public Bitmap? CaptureWindow(IntPtr hWnd, CaptureMethod method)
     {
-        if (_lastMethod == CaptureMethod.WindowsGraphicsCapture && method != CaptureMethod.WindowsGraphicsCapture)
+        if (_lastMethod != null && _lastMethod != method)
         {
-            WindowsGraphicsCaptureCapture.Release();
+            ReleaseCaptureMethod(_lastMethod.Value);
         }
         _lastMethod = method;
 
@@ -31,5 +31,21 @@ public class ScreenshotService : IScreenshotService
     public Bitmap? CaptureWindow(WindowInfo window, CaptureMethod method)
     {
         return CaptureWindow(window.Handle, method);
+    }
+
+    private static void ReleaseCaptureMethod(CaptureMethod method)
+    {
+        switch (method)
+        {
+            case CaptureMethod.PrintWindow:
+                PrintWindowCapture.Release();
+                break;
+            case CaptureMethod.DxgiDesktopDuplication:
+                DxgiDesktopDuplicationCapture.Release();
+                break;
+            case CaptureMethod.WindowsGraphicsCapture:
+                WindowsGraphicsCaptureCapture.Release();
+                break;
+        }
     }
 }

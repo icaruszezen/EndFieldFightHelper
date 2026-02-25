@@ -15,7 +15,7 @@ using EndFieldFightHelper.Services;
 
 namespace EndFieldFightHelper.ViewModels;
 
-public partial class ScreenshotViewModel : ViewModelBase
+public partial class ScreenshotViewModel : ViewModelBase, IDisposable
 {
     private readonly IScreenshotService _screenshotService;
     private System.Drawing.Bitmap? _currentBitmap;
@@ -185,29 +185,39 @@ public partial class ScreenshotViewModel : ViewModelBase
         BenchmarkResultText = "";
 
         var testDuration = TimeSpan.FromSeconds(5);
-        var startTime = DateTime.Now;
+        var window = SelectedWindow;
+        var method = CurrentMethod;
 
-        while (DateTime.Now - startTime < testDuration)
+        var times = await Task.Run(() =>
         {
-            var stopwatch = Stopwatch.StartNew();
+            var results = new System.Collections.Generic.List<long>();
+            var startTime = Stopwatch.StartNew();
 
-            try
+            while (startTime.Elapsed < testDuration)
             {
-                var bitmap = _screenshotService.CaptureWindow(SelectedWindow, CurrentMethod);
-                stopwatch.Stop();
-
-                if (bitmap != null)
+                var sw = Stopwatch.StartNew();
+                try
                 {
-                    BenchmarkTimes.Add(stopwatch.ElapsedMilliseconds);
-                    bitmap.Dispose();
+                    var bitmap = _screenshotService.CaptureWindow(window, method);
+                    sw.Stop();
+                    if (bitmap != null)
+                    {
+                        results.Add(sw.ElapsedMilliseconds);
+                        bitmap.Dispose();
+                    }
+                }
+                catch
+                {
+                    sw.Stop();
                 }
             }
-            catch
-            {
-                stopwatch.Stop();
-            }
 
-            await Task.Delay(1);
+            return results;
+        });
+
+        foreach (var t in times)
+        {
+            BenchmarkTimes.Add(t);
         }
 
         if (BenchmarkTimes.Count > 0)
@@ -224,5 +234,11 @@ public partial class ScreenshotViewModel : ViewModelBase
         }
 
         IsBenchmarking = false;
+    }
+
+    public void Dispose()
+    {
+        _currentBitmap?.Dispose();
+        _currentBitmap = null;
     }
 }

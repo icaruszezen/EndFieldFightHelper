@@ -167,8 +167,7 @@
                                 <DataTemplate x:DataType="sukiModels:SukiColorTheme">
                                     <Button Margin="0,0,8,8"
                                             Width="80" Height="50"
-                                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).SetColorThemeCommand}"
-                                            CommandParameter="{Binding}"
+                                            Click="OnColorThemeClick"
                                             CornerRadius="8"
                                             Padding="8"
                                             HorizontalContentAlignment="Center"

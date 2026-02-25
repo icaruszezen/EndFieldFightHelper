@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +22,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _isLoading;
     private readonly OverlayService _overlayService;
     private readonly ISukiToastManager _toastManager;
+    private OverlayViewModel? _overlayViewModel;
+    private CancellationTokenSource? _saveCts;
     
     [ObservableProperty]
     private CaptureMethod _selectedMethod = CaptureMethod.PrintWindow;
@@ -58,6 +61,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private CloseAction _closeAction = CloseAction.Ask;
 
+    [ObservableProperty]
+    private string _yoloModelPath = "";
+
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
 
     public event Action<CaptureMethod>? CaptureMethodChanged;
@@ -92,7 +98,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             "EndFieldFightHelper",
             "settings.json");
 
-        _overlayService = new OverlayService(this);
+        _overlayService = new OverlayService();
         
         InitializeColorThemes();
         LoadSettings();
@@ -110,14 +116,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     partial void OnSelectedMethodChanged(CaptureMethod value)
     {
         CaptureMethodChanged?.Invoke(value);
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnIsDarkThemeChanged(bool value)
     {
         var sukiTheme = SukiTheme.GetInstance();
         sukiTheme.ChangeBaseTheme(value ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light);
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnSelectedColorThemeChanged(SukiColorTheme? value)
@@ -126,60 +132,71 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         {
             var sukiTheme = SukiTheme.GetInstance();
             sukiTheme.ChangeColorTheme(value);
-            if (!_isLoading) _ = SaveSettingsAsync();
+            if (!_isLoading) ScheduleSave();
         }
     }
 
     partial void OnOverlayEnabledChanged(bool value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayClickThroughChanged(bool value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayXChanged(double value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayYChanged(double value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayWidthChanged(double value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayHeightChanged(double value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayOpacityChanged(double value)
     {
         ApplyOverlaySettingsIfReady();
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnOverlayTextChanged(string value)
     {
-        if (!_isLoading) _ = SaveSettingsAsync();
+        _overlayViewModel?.UpdateText(value);
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnCloseActionChanged(CloseAction value)
     {
-        if (!_isLoading) _ = SaveSettingsAsync();
+        if (!_isLoading) ScheduleSave();
+    }
+
+    partial void OnYoloModelPathChanged(string value)
+    {
+        if (!_isLoading) ScheduleSave();
+    }
+
+    public void UpdateYoloModelPath(string path)
+    {
+        YoloModelPath = path;
     }
 
     [RelayCommand]
@@ -236,6 +253,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     OverlayOpacity = settings.OverlayOpacity;
                     OverlayText = settings.OverlayText;
                     CloseAction = settings.CloseAction;
+                    YoloModelPath = settings.YoloModelPath;
                     
                     var savedTheme = AvailableColorThemes
                         .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
@@ -264,10 +282,21 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private async Task SaveSettingsAsync()
+    private void ScheduleSave()
+    {
+        _saveCts?.Cancel();
+        _saveCts = new CancellationTokenSource();
+        var token = _saveCts.Token;
+        _ = SaveSettingsDebouncedAsync(token);
+    }
+
+    private async Task SaveSettingsDebouncedAsync(CancellationToken token)
     {
         try
         {
+            await Task.Delay(300, token);
+            if (token.IsCancellationRequested) return;
+
             var dir = Path.GetDirectoryName(_settingsPath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             {
@@ -287,15 +316,18 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 OverlayHeight = OverlayHeight,
                 OverlayOpacity = OverlayOpacity,
                 OverlayText = OverlayText,
-                CloseAction = CloseAction
+                CloseAction = CloseAction,
+                YoloModelPath = YoloModelPath
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(_settingsPath, json);
+            await File.WriteAllTextAsync(_settingsPath, json, token);
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch
         {
-            // Ignore save errors
         }
     }
 
@@ -323,11 +355,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public void AttachOverlay(OverlayViewModel overlayViewModel)
     {
+        _overlayViewModel = overlayViewModel;
+        _overlayViewModel.UpdateText(OverlayText);
         _overlayService.SetOverlayDataContext(overlayViewModel);
     }
 
     public void Dispose()
     {
+        _saveCts?.Cancel();
+        _saveCts?.Dispose();
         _overlayService.Dispose();
     }
 }

@@ -1,17 +1,15 @@
 using System;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 
 namespace EndFieldFightHelper.Services;
 
 public class TrayIconService : IDisposable
 {
-    private readonly Window _mainWindow;
+    private readonly MainWindow _mainWindow;
     private TrayIcon? _trayIcon;
     private bool _disposed;
 
-    public TrayIconService(Window mainWindow)
+    public TrayIconService(MainWindow mainWindow)
     {
         _mainWindow = mainWindow;
     }
@@ -72,11 +70,7 @@ public class TrayIconService : IDisposable
 
     private void ExitApplication()
     {
-        Dispose();
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.Shutdown();
-        }
+        _mainWindow.ConfirmAndClose();
     }
 
     public void Dispose()

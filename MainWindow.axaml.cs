@@ -1,6 +1,8 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Win32;
+using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 using EndFieldFightHelper.ViewModels;
@@ -20,17 +22,17 @@ public partial class MainWindow : SukiWindow
 
     public MainWindow()
     {
-        InitializeComponent();
-        
-        ToastHost.Manager = ToastManager;
-        
         _viewModel = new MainWindowViewModel(ToastManager);
         DataContext = _viewModel;
-        
+
+        InitializeComponent();
+
+        ToastHost.Manager = ToastManager;
+
         _hotkeyService = new HotkeyService();
         _hotkeyService.ScreenshotHotkeyPressed += OnScreenshotHotkeyPressed;
         _hotkeyService.RefreshHotkeyPressed += OnRefreshHotkeyPressed;
-        
+
         Loaded += OnLoaded;
         Closed += OnClosed;
         Closing += OnClosing;
@@ -42,16 +44,25 @@ public partial class MainWindow : SukiWindow
         if (handle != IntPtr.Zero)
         {
             _hotkeyService.Register(handle);
+            Win32Properties.AddWndProcHookCallback(this, WndProcHook);
         }
+    }
+
+    private IntPtr WndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == (uint)Win32Helper.WM_HOTKEY)
+        {
+            _hotkeyService.ProcessHotkey((int)wParam);
+            handled = true;
+        }
+        return IntPtr.Zero;
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
         _hotkeyService.Unregister();
-        if (_viewModel.SettingsViewModel is IDisposable disposableSettings)
-        {
-            disposableSettings.Dispose();
-        }
+        _viewModel.ScreenshotViewModel.Dispose();
+        _viewModel.SettingsViewModel.Dispose();
 
         if (Avalonia.Application.Current?.ApplicationLifetime
             is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -130,6 +141,13 @@ public partial class MainWindow : SukiWindow
             _isClosingConfirmed = true;
             Close();
         }
+    }
+
+    public void ConfirmAndClose()
+    {
+        _isClosingConfirmed = true;
+        _trayIconService?.Dispose();
+        Close();
     }
 
     private void MinimizeToTray()

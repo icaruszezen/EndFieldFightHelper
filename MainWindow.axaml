@@ -35,6 +35,15 @@
                 </suki:SukiSideMenuItem.PageContent>
             </suki:SukiSideMenuItem>
 
+            <suki:SukiSideMenuItem Header="YOLO 识别" x:Name="YoloDetectionMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:YoloDetectionPage DataContext="{Binding YoloDetectionViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+
             <suki:SukiSideMenuItem Header="叠加显示" x:Name="OverlayMenuItem">
                 <suki:SukiSideMenuItem.Icon>
                     <PathIcon Data="M3,3H21V5H5V19H3V3M7,7H23V23H7V7Z" />

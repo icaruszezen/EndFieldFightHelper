@@ -73,16 +73,32 @@ public static class DxgiDesktopDuplicationCapture
 
                 if (!gotValidFrame || desktopResource == null) return null;
 
-                using var desktopTexture = desktopResource.QueryInterface<ID3D11Texture2D>();
-                desktopResource.Dispose();
+                ID3D11Texture2D desktopTexture;
+                try
+                {
+                    desktopTexture = desktopResource.QueryInterface<ID3D11Texture2D>();
+                }
+                finally
+                {
+                    desktopResource.Dispose();
+                }
 
-                var texDesc = desktopTexture.Description;
+                Texture2DDescription texDesc;
+                try
+                {
+                    texDesc = desktopTexture.Description;
 
-                EnsureStagingTexture(texDesc.Width, texDesc.Height, texDesc.Format);
+                    EnsureStagingTexture(texDesc.Width, texDesc.Height, texDesc.Format);
 
-                if (_cachedStagingTexture == null) return null;
+                    if (_cachedStagingTexture == null) return null;
 
-                _cachedContext.CopyResource(_cachedStagingTexture, desktopTexture);
+                    _cachedContext.CopyResource(_cachedStagingTexture, desktopTexture);
+                }
+                finally
+                {
+                    desktopTexture.Dispose();
+                }
+
                 _cachedDuplication.ReleaseFrame();
 
                 var mapped = _cachedContext.Map(_cachedStagingTexture, 0, MapMode.Read);
@@ -241,6 +257,14 @@ public static class DxgiDesktopDuplicationCapture
         _cachedStagingTexture = _cachedDevice.CreateTexture2D(stagingDesc);
         _cachedStagingWidth = width;
         _cachedStagingHeight = height;
+    }
+
+    public static void Release()
+    {
+        lock (_lock)
+        {
+            ReleaseResources();
+        }
     }
 
     private static void ReleaseResources()
