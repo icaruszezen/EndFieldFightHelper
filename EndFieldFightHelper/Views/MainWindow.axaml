@@ -1,0 +1,26 @@
+<suki:SukiWindow x:Class="EndFieldFightHelper.Views.MainWindow"
+                xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                xmlns:suki="https://github.com/kikipoulet/SukiUI"
+                xmlns:vm="using:EndFieldFightHelper.ViewModels"
+                Title="EndField Fight Helper"
+                d:DesignHeight="600"
+                d:DesignWidth="900"
+                x:DataType="vm:MainViewModel"
+                mc:Ignorable="d">
+    <suki:SukiSideMenu ItemsSource="{Binding Pages}"
+                       SelectedItem="{Binding ActivePage}">
+        <suki:SukiSideMenu.ItemTemplate>
+            <DataTemplate>
+                <suki:SukiSideMenuItem Header="{Binding DisplayName}">
+                    <suki:SukiSideMenuItem.Icon>
+                        <avalonia:MaterialIcon Kind="{Binding Icon}" />
+                    </suki:SukiSideMenuItem.Icon>
+                </suki:SukiSideMenuItem>
+            </DataTemplate>
+        </suki:SukiSideMenu.ItemTemplate>
+    </suki:SukiSideMenu>
+</suki:SukiWindow>
