@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.OverlayWindow"
+        x:DataType="vm:OverlayViewModel"
+        Width="300"
+        Height="120"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False"
+        CanResize="False"
+        WindowStartupLocation="Manual">
+    <Border Background="#AA000000"
+            CornerRadius="6"
+            Padding="12"
+            Margin="4">
+        <TextBlock Text="{Binding OverlayText}"
+                   Foreground="White"
+                   FontSize="14"
+                   TextWrapping="Wrap"
+                   VerticalAlignment="Center"
+                   HorizontalAlignment="Center" />
+    </Border>
+</Window>

@@ -1,0 +1,83 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.ClosingDialog"
+        Title="关闭应用"
+        Width="420" Height="280"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur">
+    
+    <Border Background="{DynamicResource SukiCardBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource SukiControlBorderBrush}"
+            BorderThickness="1"
+            Padding="32">
+        <Grid RowDefinitions="Auto,Auto">
+            <StackPanel Grid.Row="0" Spacing="10">
+                <Button x:Name="MinimizeButton"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        Padding="16,14"
+                        CornerRadius="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Grid.Column="0" 
+                                Background="{DynamicResource SukiPrimaryColor}" 
+                                Opacity="0.35"
+                                CornerRadius="6" 
+                                Width="36" Height="36">
+                            <PathIcon Data="M20,14H4V10H20" 
+                                      Width="18" Height="18"
+                                      Foreground="{DynamicResource SukiPrimaryColor}" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="最小化到托盘" FontWeight="Medium" />
+                            <TextBlock Text="隐藏窗口，在托盘继续运行" FontSize="11" Opacity="0.5" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                
+                <Button x:Name="ExitButton"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        Padding="16,14"
+                        CornerRadius="8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Grid.Column="0" 
+                                Background="#E53935" 
+                                Opacity="0.35"
+                                CornerRadius="6" 
+                                Width="36" Height="36">
+                            <PathIcon Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" 
+                                      Width="18" Height="18"
+                                      Foreground="#E53935" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="退出程序" FontWeight="Medium" />
+                            <TextBlock Text="完全关闭应用程序" FontSize="11" Opacity="0.5" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+            </StackPanel>
+            
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,20,0,0">
+                <CheckBox x:Name="RememberCheckBox"
+                          Grid.Column="0"
+                          Content="记住我的选择"
+                          VerticalAlignment="Center" />
+                <Button x:Name="CancelButton"
+                        Grid.Column="1"
+                        Content="取消"
+                        Padding="24,10"
+                        CornerRadius="6" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

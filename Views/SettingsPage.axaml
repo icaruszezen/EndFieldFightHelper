@@ -1,0 +1,291 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:models="clr-namespace:EndFieldFightHelper.Models"
+             xmlns:sukiModels="clr-namespace:SukiUI.Models;assembly=SukiUI"
+             xmlns:converters="clr-namespace:EndFieldFightHelper.Converters"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="700"
+             x:Class="EndFieldFightHelper.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel">
+    
+    <UserControl.Resources>
+        <converters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+        <SolidColorBrush x:Key="OptionCardAccentBrush" Color="{DynamicResource SukiPrimaryColor}" />
+        <SolidColorBrush x:Key="OptionCardAccentBgBrush" Color="{DynamicResource SukiPrimaryColor10}" />
+    </UserControl.Resources>
+    
+    <UserControl.Styles>
+        <Style Selector="RadioButton.OptionCard">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="RootBorder"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                            BorderThickness="1.5"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.OptionCard:pointerover /template/ Border#RootBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionCardAccentBrush}" />
+        </Style>
+        <Style Selector="RadioButton.OptionCard:checked /template/ Border#RootBorder">
+            <Setter Property="Background" Value="{DynamicResource OptionCardAccentBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource OptionCardAccentBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="RadioButton.OptionCard:disabled">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+    </UserControl.Styles>
+    
+    <ScrollViewer>
+        <StackPanel Margin="40" Spacing="20">
+            <TextBlock Text="设置" FontSize="28" FontWeight="Bold" />
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24"
+                    Margin="0,20,0,0">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="截图方式" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="选择用于截取窗口的方法" Opacity="0.7" />
+                    
+                    <StackPanel Spacing="10" Margin="0,10,0,0">
+                        <RadioButton Classes="OptionCard" GroupName="CaptureMethod"
+                                     IsChecked="{Binding SelectedMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CaptureMethod.WindowsGraphicsCapture}, Mode=OneWay}"
+                                     Command="{Binding SetMethodCommand}"
+                                     CommandParameter="WindowsGraphicsCapture">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="Windows Graphics Capture" FontWeight="SemiBold" />
+                                    <Border Background="#4CAF50" CornerRadius="4" Padding="6,2">
+                                        <TextBlock Text="推荐" FontSize="11" Foreground="White" FontWeight="SemiBold" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding WindowsGraphicsCaptureDescription}" 
+                                           TextWrapping="Wrap" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CaptureMethod"
+                                     IsChecked="{Binding SelectedMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CaptureMethod.DxgiDesktopDuplication}, Mode=OneWay}"
+                                     Command="{Binding SetMethodCommand}"
+                                     CommandParameter="DxgiDesktopDuplication">
+                            <StackPanel Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="DXGI Desktop Duplication" FontWeight="SemiBold" />
+                                    <Border Background="#4CAF50" CornerRadius="4" Padding="6,2">
+                                        <TextBlock Text="推荐" FontSize="11" Foreground="White" FontWeight="SemiBold" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding DxgiDesktopDuplicationDescription}" 
+                                           TextWrapping="Wrap" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CaptureMethod"
+                                     IsChecked="{Binding SelectedMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CaptureMethod.PrintWindow}, Mode=OneWay}"
+                                     Command="{Binding SetMethodCommand}"
+                                     CommandParameter="PrintWindow">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="PrintWindow" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PrintWindowDescription}" 
+                                           TextWrapping="Wrap" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CaptureMethod"
+                                     IsChecked="{Binding SelectedMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CaptureMethod.GdiPlusCopyFromScreen}, Mode=OneWay}"
+                                     Command="{Binding SetMethodCommand}"
+                                     CommandParameter="GdiPlus">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="GDI+ CopyFromScreen" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding GdiPlusDescription}" 
+                                           TextWrapping="Wrap" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CaptureMethod"
+                                     IsChecked="{Binding SelectedMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CaptureMethod.BitBlt}, Mode=OneWay}"
+                                     Command="{Binding SetMethodCommand}"
+                                     CommandParameter="BitBlt">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="BitBlt" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding BitBltDescription}" 
+                                           TextWrapping="Wrap" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="主题设置" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="自定义应用程序的外观" Opacity="0.7" />
+                    
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="深色模式" FontWeight="SemiBold" />
+                            <TextBlock Text="切换深色/浅色主题" Opacity="0.7" FontSize="12" />
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding IsDarkTheme}" VerticalAlignment="Center" />
+                    </Grid>
+                    
+                    <StackPanel Spacing="8" Margin="0,10,0,0">
+                        <TextBlock Text="主题颜色" FontWeight="SemiBold" />
+                        <TextBlock Text="选择应用程序的主题颜色" Opacity="0.7" FontSize="12" />
+                        <ItemsControl ItemsSource="{Binding AvailableColorThemes}" Margin="0,8,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="sukiModels:SukiColorTheme">
+                                    <Button Margin="0,0,8,8"
+                                            Width="80" Height="50"
+                                            Command="{Binding $parent[UserControl].((vm:SettingsViewModel)DataContext).SetColorThemeCommand}"
+                                            CommandParameter="{Binding}"
+                                            CornerRadius="8"
+                                            Padding="8"
+                                            HorizontalContentAlignment="Center"
+                                            VerticalContentAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Border Width="16" Height="16" 
+                                                    CornerRadius="8"
+                                                    Background="{Binding Primary, Converter={StaticResource ColorToBrushConverter}}"/>
+                                            <TextBlock Text="{Binding DisplayName}" 
+                                                       VerticalAlignment="Center"
+                                                       FontSize="11" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="关闭行为" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="设置点击关闭按钮时的默认操作" Opacity="0.7" />
+                    
+                    <StackPanel Spacing="10" Margin="0,10,0,0">
+                        <RadioButton Classes="OptionCard" GroupName="CloseAction"
+                                     IsChecked="{Binding CloseAction, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CloseAction.Ask}, Mode=OneWay}"
+                                     Command="{Binding SetCloseActionCommand}"
+                                     CommandParameter="Ask">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="每次询问" FontWeight="SemiBold" />
+                                <TextBlock Text="关闭时弹出对话框询问" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CloseAction"
+                                     IsChecked="{Binding CloseAction, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CloseAction.MinimizeToTray}, Mode=OneWay}"
+                                     Command="{Binding SetCloseActionCommand}"
+                                     CommandParameter="MinimizeToTray">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="最小化到托盘" FontWeight="SemiBold" />
+                                <TextBlock Text="关闭窗口时最小化到系统托盘" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton Classes="OptionCard" GroupName="CloseAction"
+                                     IsChecked="{Binding CloseAction, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static models:CloseAction.Exit}, Mode=OneWay}"
+                                     Command="{Binding SetCloseActionCommand}"
+                                     CommandParameter="Exit">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="退出程序" FontWeight="SemiBold" />
+                                <TextBlock Text="直接退出应用程序" 
+                                           Opacity="0.7"
+                                           FontSize="12" />
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="快捷键" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="全局快捷键设置（需要重启应用生效）" Opacity="0.7" />
+                    
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Margin="0,10,0,0">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="截图快捷键" VerticalAlignment="Center" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Ctrl+Shift+S" FontFamily="Consolas" Opacity="0.8" />
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="刷新窗口列表" VerticalAlignment="Center" Margin="0,10,0,0" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Ctrl+Shift+R" FontFamily="Consolas" Opacity="0.8" Margin="0,10,0,0" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="截图方法对比" FontSize="20" FontWeight="SemiBold" />
+                    
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,10,0,0">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="方法" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="优点" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="缺点" FontWeight="SemiBold" />
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Windows Graphics Capture（推荐）" Margin="0,8,0,0" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="可截遮挡窗口+硬件加速，无黄色边框" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" Text="需要Win10 1903+，禁边框需Win11" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="DXGI Desktop Duplication（推荐）" Margin="0,8,0,0" FontWeight="SemiBold" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="可截取硬件加速内容，性能优异" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock Grid.Row="2" Grid.Column="2" Text="只能截取可见区域，需要Win8+" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="PrintWindow" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="可截取被遮挡窗口" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock Grid.Row="3" Grid.Column="2" Text="某些应用可能返回黑屏" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="GDI+ CopyFromScreen" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="使用简单，.NET原生支持" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock Grid.Row="4" Grid.Column="2" Text="只能截取可见区域" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="BitBlt" Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="经典GDI位块传输" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                        <TextBlock Grid.Row="5" Grid.Column="2" Text="无法截取硬件加速内容" Margin="0,8,0,0" TextWrapping="Wrap" Opacity="0.8" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

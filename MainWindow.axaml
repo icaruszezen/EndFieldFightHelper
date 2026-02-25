@@ -1,0 +1,58 @@
+<suki:SukiWindow xmlns="https://github.com/avaloniaui"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                 xmlns:suki="clr-namespace:SukiUI.Controls;assembly=SukiUI"
+                 xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+                 xmlns:views="clr-namespace:EndFieldFightHelper.Views"
+                 mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+                 x:Class="EndFieldFightHelper.MainWindow"
+                 x:DataType="vm:MainWindowViewModel"
+                 Title="EndField Fight Helper"
+                 Width="1200" Height="800">
+    
+    <suki:SukiWindow.Hosts>
+        <suki:SukiToastHost x:Name="ToastHost" MaxToasts="3" />
+    </suki:SukiWindow.Hosts>
+    
+    <suki:SukiSideMenu IsMenuExpanded="False">
+        <suki:SukiSideMenu.Items>
+            <suki:SukiSideMenuItem Header="首页" x:Name="HomeMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M12,3L20,9V21H15V14H9V21H4V9L12,3M12,5.8L6,10.19V19H7V12H17V19H18V10.19L12,5.8Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:HomePage DataContext="{Binding HomeViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+            
+            <suki:SukiSideMenuItem Header="截图" x:Name="ScreenshotMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M9,3L7.17,5H4A2,2 0 0,0 2,7V19A2,2 0 0,0 4,21H20A2,2 0 0,0 22,19V7A2,2 0 0,0 20,5H16.83L15,3M12,18A5,5 0 0,1 7,13A5,5 0 0,1 12,8A5,5 0 0,1 17,13A5,5 0 0,1 12,18M12,17L13.25,14.25L16,13L13.25,11.75L12,9L10.75,11.75L8,13L10.75,14.25L12,17Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:ScreenshotPage DataContext="{Binding ScreenshotViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+
+            <suki:SukiSideMenuItem Header="叠加显示" x:Name="OverlayMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M3,3H21V5H5V19H3V3M7,7H23V23H7V7Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:OverlaySettingsPage DataContext="{Binding SettingsViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+            
+            <suki:SukiSideMenuItem Header="设置" x:Name="SettingsMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:SettingsPage DataContext="{Binding SettingsViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+        </suki:SukiSideMenu.Items>
+    </suki:SukiSideMenu>
+    
+</suki:SukiWindow>

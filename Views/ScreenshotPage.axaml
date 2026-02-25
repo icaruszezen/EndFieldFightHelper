@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:suki="clr-namespace:SukiUI.Controls;assembly=SukiUI"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="EndFieldFightHelper.Views.ScreenshotPage"
+             x:DataType="vm:ScreenshotViewModel">
+    
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Grid.Row="0" 
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8"
+                Padding="16"
+                Margin="20,20,20,10">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="10">
+                    <TextBlock Text="选择窗口" FontWeight="SemiBold" />
+                    <ComboBox ItemsSource="{Binding Windows}"
+                              SelectedItem="{Binding SelectedWindow}"
+                              HorizontalAlignment="Stretch"
+                              PlaceholderText="请选择要截图的窗口">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+                    <Button Content="刷新" Command="{Binding RefreshWindowsCommand}" />
+                    <Button Content="截图" Command="{Binding CaptureCommand}" Classes="Accent" />
+                    <Button Content="性能测试" Command="{Binding BenchmarkCaptureCommand}" 
+                            IsEnabled="{Binding !IsBenchmarking}" />
+                    <Button Content="保存" Command="{Binding SaveCommand}" 
+                            CommandParameter="{Binding $parent[TopLevel].StorageProvider}"
+                            IsEnabled="{Binding HasImage}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        
+        <Border Grid.Row="1"
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8"
+                Margin="20,10"
+                ClipToBounds="True">
+            <Grid>
+                <TextBlock Text="截图预览区域"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Opacity="0.3"
+                           FontSize="24"
+                           IsVisible="{Binding !HasImage}" />
+                
+                <Image Source="{Binding PreviewImage}"
+                       Stretch="Uniform"
+                       Margin="10"
+                       IsVisible="{Binding HasImage}" />
+            </Grid>
+        </Border>
+        
+        <Border Grid.Row="2"
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8"
+                Padding="16"
+                Margin="20,10,20,20">
+            <StackPanel Spacing="5">
+                <Grid ColumnDefinitions="*,Auto,*">
+                    <SelectableTextBlock Text="{Binding CaptureDurationText}" 
+                               Grid.Column="0"
+                               HorizontalAlignment="Left"
+                               Opacity="0.8" />
+                    <SelectableTextBlock Text="{Binding StatusMessage}" 
+                               Grid.Column="1"
+                               HorizontalAlignment="Center"
+                               Opacity="0.8" />
+                </Grid>
+                <SelectableTextBlock Text="{Binding BenchmarkResultText}" 
+                           HorizontalAlignment="Center"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource SukiAccent}" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

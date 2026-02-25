@@ -2,14 +2,23 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "F5 Debug EndFieldFightHelper",
+      "name": "Debug",
       "type": "coreclr",
       "request": "launch",
-      "preLaunchTask": "build EndFieldFightHelper",
-      "program": "${workspaceFolder}/EndFieldFightHelper/bin/Debug/net8.0/EndFieldFightHelper.dll",
-      "cwd": "${workspaceFolder}/EndFieldFightHelper",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/bin/Debug/net10.0-windows10.0.22621.0/EndFieldFightHelper.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}",
       "console": "internalConsole",
-      "stopAtEntry": false
+      "stopAtEntry": false,
+      "env": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    },
+    {
+      "name": "Attach",
+      "type": "coreclr",
+      "request": "attach"
     }
   ]
 }

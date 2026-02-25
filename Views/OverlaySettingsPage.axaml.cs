@@ -2,9 +2,9 @@ using Avalonia.Controls;
 
 namespace EndFieldFightHelper.Views;
 
-public partial class SettingsPageView : UserControl
+public partial class OverlaySettingsPage : UserControl
 {
-    public SettingsPageView()
+    public OverlaySettingsPage()
     {
         InitializeComponent();
     }
