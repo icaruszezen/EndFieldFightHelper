@@ -143,6 +143,58 @@
                     CornerRadius="8"
                     Padding="24">
                 <StackPanel Spacing="16">
+                    <TextBlock Text="YOLO 检测设置" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="配置 YOLO 模型推理参数，修改后将自动重新加载模型" Opacity="0.7" />
+                    
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="GPU 加速" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding IsGpuAvailable, StringFormat='{}使用 CUDA 进行 GPU 加速推理'}"
+                                       IsVisible="{Binding IsGpuAvailable}"
+                                       Opacity="0.7" FontSize="12" />
+                            <TextBlock Text="未检测到兼容的 NVIDIA GPU（需要 CUDA 支持）"
+                                       IsVisible="{Binding !IsGpuAvailable}"
+                                       Foreground="#F44336"
+                                       Opacity="0.8" FontSize="12" />
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" 
+                                      IsChecked="{Binding UseGpu}" 
+                                      IsEnabled="{Binding IsGpuAvailable}"
+                                      VerticalAlignment="Center" />
+                    </Grid>
+                    
+                    <StackPanel Spacing="4" Margin="0,10,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="置信度阈值" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding YoloConfidence, StringFormat='{}{0:F2}'}" 
+                                       Opacity="0.8" FontFamily="Consolas" />
+                        </Grid>
+                        <TextBlock Text="值越高，检测结果越严格，后处理越快" Opacity="0.7" FontSize="12" />
+                        <Slider Minimum="0.1" Maximum="0.9" 
+                                TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                Value="{Binding YoloConfidence}" 
+                                Margin="0,4,0,0" />
+                    </StackPanel>
+                    
+                    <StackPanel Spacing="4" Margin="0,6,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="IoU 阈值 (NMS)" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{Binding YoloIoU, StringFormat='{}{0:F2}'}" 
+                                       Opacity="0.8" FontFamily="Consolas" />
+                        </Grid>
+                        <TextBlock Text="非极大值抑制的 IoU 阈值，值越低去重越积极" Opacity="0.7" FontSize="12" />
+                        <Slider Minimum="0.1" Maximum="0.9" 
+                                TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                Value="{Binding YoloIoU}" 
+                                Margin="0,4,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
                     <TextBlock Text="主题设置" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock Text="自定义应用程序的外观" Opacity="0.7" />
                     

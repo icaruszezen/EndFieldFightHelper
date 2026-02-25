@@ -22,6 +22,6 @@
     </PackageReference>
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.2" />
     <PackageReference Include="Vortice.DXGI" Version="3.8.2" />
-    <PackageReference Include="YoloSharp" Version="6.1.0" />
+    <PackageReference Include="YoloSharp.Gpu" Version="6.1.0" />
   </ItemGroup>
 </Project>

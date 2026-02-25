@@ -72,6 +72,10 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private CaptureMethod _currentMethod = CaptureMethod.PrintWindow;
 
+    private bool _useGpu;
+    private float _confidence = 0.3f;
+    private float _iou = 0.45f;
+
     public event Action<string>? ModelPathChanged;
 
     public YoloDetectionViewModel(IScreenshotService screenshotService, YoloDetectionService detectionService)
@@ -86,22 +90,49 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         CurrentMethod = method;
     }
 
-    public void TryLoadSavedModel(string? modelPath)
+    public void SetYoloSettings(bool useGpu, float confidence, float iou)
     {
+        _useGpu = useGpu;
+        _confidence = confidence;
+        _iou = iou;
+    }
+
+    public void TryLoadSavedModel(string? modelPath, bool useGpu = false,
+        float confidence = 0.3f, float iou = 0.45f)
+    {
+        SetYoloSettings(useGpu, confidence, iou);
         if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
         {
             try
             {
-                _detectionService.LoadModel(modelPath);
+                _detectionService.LoadModel(modelPath, useGpu, confidence, iou);
                 IsModelLoaded = true;
-                ModelStatusText = $"已加载: {Path.GetFileName(modelPath)}";
-                StatusMessage = "模型已加载，可以开始识别";
+                UpdateModelStatusText();
+
+                if (useGpu && !_detectionService.IsUsingGpu)
+                    StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
+                else
+                    StatusMessage = "模型已加载，可以开始识别";
             }
             catch
             {
                 ModelStatusText = "未加载模型";
             }
         }
+    }
+
+    public void UpdateModelStatus()
+    {
+        IsModelLoaded = _detectionService.IsModelLoaded;
+        if (IsModelLoaded)
+            UpdateModelStatusText();
+    }
+
+    private void UpdateModelStatusText()
+    {
+        var fileName = Path.GetFileName(_detectionService.ModelPath);
+        var mode = _detectionService.IsUsingGpu ? "GPU" : "CPU";
+        ModelStatusText = $"已加载: {fileName} ({mode})";
     }
 
     [RelayCommand]
@@ -144,10 +175,15 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         try
         {
             StatusMessage = "正在加载模型...";
-            await Task.Run(() => _detectionService.LoadModel(filePath));
+            await Task.Run(() => _detectionService.LoadModel(filePath, _useGpu, _confidence, _iou));
             IsModelLoaded = true;
-            ModelStatusText = $"已加载: {Path.GetFileName(filePath)}";
-            StatusMessage = "模型加载成功";
+            UpdateModelStatusText();
+
+            if (_useGpu && !_detectionService.IsUsingGpu)
+                StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
+            else
+                StatusMessage = "模型加载成功";
+
             ModelPathChanged?.Invoke(filePath);
         }
         catch (Exception ex)
@@ -296,6 +332,8 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         _continuousCts?.Cancel();
     }
 
+    private const int PlotEveryNFrames = 5;
+
     private async Task RunDetectionAsync()
     {
         if (_currentBitmap == null && _currentImagePath == null) return;
@@ -307,12 +345,14 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
             HasResults = false;
         }
 
+        bool skipPlot = IsContinuousDetecting && (ContinuousCount % PlotEveryNFrames != 0);
+
         var sw = Stopwatch.StartNew();
         try
         {
             var (results, plottedBytes) = _currentImagePath != null
-                ? await Task.Run(() => _detectionService.DetectAsync(_currentImagePath))
-                : await Task.Run(() => _detectionService.DetectAsync(_currentBitmap!));
+                ? await Task.Run(() => _detectionService.DetectAsync(_currentImagePath, skipPlot))
+                : await Task.Run(() => _detectionService.DetectAsync(_currentBitmap!, skipPlot));
             sw.Stop();
 
             DetectionResults.Clear();
@@ -320,9 +360,12 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
                 DetectionResults.Add(r);
             HasResults = DetectionResults.Count > 0;
 
-            using var ms = new MemoryStream(plottedBytes);
-            PreviewImage = new Bitmap(ms);
-            HasImage = true;
+            if (plottedBytes != null)
+            {
+                using var ms = new MemoryStream(plottedBytes);
+                PreviewImage = new Bitmap(ms);
+                HasImage = true;
+            }
 
             DetectionDurationText = $"推理耗时: {sw.ElapsedMilliseconds}ms";
             StatusMessage = $"识别完成，检测到 {results.Count} 个目标";

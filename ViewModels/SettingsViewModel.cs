@@ -64,9 +64,21 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private string _yoloModelPath = "";
 
+    [ObservableProperty]
+    private bool _useGpu;
+
+    [ObservableProperty]
+    private double _yoloConfidence = 0.3;
+
+    [ObservableProperty]
+    private double _yoloIoU = 0.45;
+
+    public bool IsGpuAvailable { get; } = YoloDetectionService.IsGpuAvailable();
+
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
 
     public event Action<CaptureMethod>? CaptureMethodChanged;
+    public event Action? YoloSettingsChanged;
 
     public string PrintWindowDescription => 
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
@@ -194,6 +206,33 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         if (!_isLoading) ScheduleSave();
     }
 
+    partial void OnUseGpuChanged(bool value)
+    {
+        if (!_isLoading)
+        {
+            ScheduleSave();
+            YoloSettingsChanged?.Invoke();
+        }
+    }
+
+    partial void OnYoloConfidenceChanged(double value)
+    {
+        if (!_isLoading)
+        {
+            ScheduleSave();
+            YoloSettingsChanged?.Invoke();
+        }
+    }
+
+    partial void OnYoloIoUChanged(double value)
+    {
+        if (!_isLoading)
+        {
+            ScheduleSave();
+            YoloSettingsChanged?.Invoke();
+        }
+    }
+
     public void UpdateYoloModelPath(string path)
     {
         YoloModelPath = path;
@@ -254,6 +293,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     OverlayText = settings.OverlayText;
                     CloseAction = settings.CloseAction;
                     YoloModelPath = settings.YoloModelPath;
+                    UseGpu = settings.UseGpu;
+                    YoloConfidence = settings.YoloConfidence;
+                    YoloIoU = settings.YoloIoU;
                     
                     var savedTheme = AvailableColorThemes
                         .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
@@ -317,7 +359,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 OverlayOpacity = OverlayOpacity,
                 OverlayText = OverlayText,
                 CloseAction = CloseAction,
-                YoloModelPath = YoloModelPath
+                YoloModelPath = YoloModelPath,
+                UseGpu = UseGpu,
+                YoloConfidence = (float)YoloConfidence,
+                YoloIoU = (float)YoloIoU
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
