@@ -19,7 +19,7 @@ public sealed class SharedCaptureFrame : IDisposable
         {
             old = _image;
             _image = newImage;
-            Interlocked.Increment(ref _frameId);
+            _frameId++;
         }
         old?.Dispose();
     }
@@ -36,6 +36,18 @@ public sealed class SharedCaptureFrame : IDisposable
                 return null;
             return (_frameId, new Bitmap(_image));
         }
+    }
+
+    public void Clear()
+    {
+        Bitmap? old;
+        lock (_lock)
+        {
+            old = _image;
+            _image = null;
+            _frameId = 0;
+        }
+        old?.Dispose();
     }
 
     public void Dispose()

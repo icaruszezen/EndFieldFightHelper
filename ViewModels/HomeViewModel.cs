@@ -296,7 +296,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _autoDodgeService.Dispose();
-        _pipelineService.Stop();
+        _pipelineService.Dispose();
         _previewTimer?.Dispose();
         _previewTimer = null;
         PreviewImage?.Dispose();

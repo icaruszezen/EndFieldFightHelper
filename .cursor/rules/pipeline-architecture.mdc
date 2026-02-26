@@ -61,16 +61,19 @@ each other.
 - **Multiple readers**: call `CloneLatest(long lastSeenId)`.
   - Returns `null` if no new frame since `lastSeenId`.
   - Returns `(frameId, clonedBitmap)` — **caller owns the clone and must dispose it**.
-- **FrameId** (`long`): monotonically incremented via `Interlocked.Increment`.
+- **FrameId** (`long`): monotonically incremented inside the internal `lock`.
   Readable without locking via `Volatile.Read` for cheap "has new frame?" checks.
-- Internal `lock` protects the bitmap reference during update and clone.
+- Internal `lock` protects the bitmap reference and FrameId during update, clone, and clear.
 
 ### SharedDetectionState
 
 - **Single writer**: `DetectionLoop` calls `Update(long frameId, IReadOnlyList<DetectionResult> results)`.
+  `Update` copies the input into an internal array snapshot, so callers can safely
+  mutate or discard the original list after the call.
 - **Multiple readers**: call `GetLatest(long lastSeenId)`.
   - Returns `null` if no new results since `lastSeenId`.
-  - Returns `(frameId, results)` — the list is immutable, safe to hold without copying.
+  - Returns `(frameId, results)` — the array snapshot is truly immutable and safe to
+    hold without copying.
 - **FrameId** is inherited from the capture frame that was analyzed. This lets consumers
   correlate detection results with capture frames.
 
@@ -80,13 +83,11 @@ each other.
 - Detection results carry the **same FrameId** as the frame they were produced from.
 - Consumers track the last FrameId they processed. To check for new data:
   ```csharp
-  // Fast check without locking:
-  if (sharedState.FrameId == _lastSeenId) { /* nothing new */ }
-
-  // Full read with data:
   var latest = sharedState.GetLatest(_lastSeenId);
   if (latest != null) { _lastSeenId = latest.Value.frameId; /* process */ }
   ```
+  `GetLatest` internally checks whether the FrameId has changed and returns `null`
+  if there is nothing new, so an extra `FrameId` pre-check is unnecessary.
 
 ## RecognitionPipelineService API
 
@@ -96,7 +97,7 @@ each other.
 // Start both loops (requires YOLO model to be loaded)
 void Start(IntPtr hWnd, CaptureMethod method)
 
-// Gracefully cancel both loops, wait up to 3s, clear state
+// Gracefully cancel both loops, wait up to 3s, clear SharedCapture and SharedDetection
 void Stop()
 
 // Clean up (calls Stop + disposes SharedCapture)
@@ -145,7 +146,8 @@ event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel
 1. Calls `SharedCapture.CloneLatest(lastFrameId)` to get the newest frame.
 2. If no new frame: waits 5ms and retries (natural frame skipping).
 3. Runs `_detectionService.DetectAsync(bitmap, skipPlot)`.
-   - `skipPlot` is `true` unless debug output is enabled AND this is every 5th frame.
+   - `skipPlot` is `true` unless debug output is enabled AND `detectionFrameCount % 5 == 0`
+     (i.e., one out of every 5 frames generates a plotted image).
 4. Updates `SharedDetection` with the results and the **same FrameId** from the capture.
 5. If plotted bytes were generated, stores them in `LastPlottedImageBytes`.
 6. On exception: logs, waits 100ms, retries.

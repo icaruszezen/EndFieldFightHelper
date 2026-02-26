@@ -61,8 +61,7 @@ public partial class MainWindow : SukiWindow
     private void OnClosed(object? sender, EventArgs e)
     {
         _hotkeyService.Unregister();
-        _viewModel.ScreenshotViewModel.Dispose();
-        _viewModel.SettingsViewModel.Dispose();
+        _viewModel.Dispose();
 
         if (Avalonia.Application.Current?.ApplicationLifetime
             is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)

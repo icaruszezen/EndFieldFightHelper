@@ -19,9 +19,9 @@ public sealed class AutoDodgeService : IDisposable
     private const string DodgePromptName = "闪避提示";
     private const int VK_LSHIFT = 0xA0;
     private const int DodgeDelayMs = 150;
-    private const int DodgeCooldownMs = 350;
+    private const int DodgeCooldownMs = 300;
 
-    public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
+    public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long DodgeCount => Volatile.Read(ref _dodgeCount);
 
     public event Action<string>? Log;
@@ -97,9 +97,9 @@ public sealed class AutoDodgeService : IDisposable
                     var now = Environment.TickCount64;
                     if (now - lastDodgeTimestamp >= DodgeCooldownMs)
                     {
-                        lastDodgeTimestamp = now;
                         await Task.Delay(DodgeDelayMs, token);
                         await _inputService.SendKeyPressAsync(hWnd, VK_LSHIFT);
+                        lastDodgeTimestamp = Environment.TickCount64;
                         Interlocked.Increment(ref _dodgeCount);
                         Log?.Invoke("检测到闪避提示，已发送闪避按键");
                     }

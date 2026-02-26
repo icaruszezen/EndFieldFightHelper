@@ -239,10 +239,16 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
-        IsDebugEnabled = false;
+        _pipelineService.IsDebugOutputEnabled = false;
         _refreshTimer?.Dispose();
         _refreshTimer = null;
-        CapturePreviewImage?.Dispose();
-        DetectionPreviewImage?.Dispose();
+
+        var oldCap = CapturePreviewImage;
+        CapturePreviewImage = null;
+        oldCap?.Dispose();
+
+        var oldDet = DetectionPreviewImage;
+        DetectionPreviewImage = null;
+        oldDet?.Dispose();
     }
 }

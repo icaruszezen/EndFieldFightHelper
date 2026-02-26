@@ -1,3 +1,4 @@
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
@@ -5,10 +6,13 @@ using SukiUI.Toasts;
 
 namespace EndFieldFightHelper.ViewModels;
 
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     [ObservableProperty]
     private ViewModelBase? _currentPage;
+
+    private readonly YoloDetectionService _detectionService;
+    private readonly OverlayService _overlayService;
 
     public HomeViewModel HomeViewModel { get; }
     public ScreenshotViewModel ScreenshotViewModel { get; }
@@ -24,6 +28,9 @@ public partial class MainWindowViewModel : ViewModelBase
         var detectionService = new YoloDetectionService();
         var inputService = new InputService();
         var overlayService = new OverlayService();
+
+        _detectionService = detectionService;
+        _overlayService = overlayService;
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
@@ -113,5 +120,15 @@ public partial class MainWindowViewModel : ViewModelBase
         };
 
         CurrentPage = HomeViewModel;
+    }
+
+    public void Dispose()
+    {
+        HomeViewModel.Dispose();
+        DebugViewModel.Dispose();
+        ScreenshotViewModel.Dispose();
+        SettingsViewModel.Dispose();
+        _detectionService.Dispose();
+        _overlayService.Dispose();
     }
 }

@@ -17,7 +17,7 @@ public sealed class RecognitionPipelineService : IDisposable
 
     public SharedCaptureFrame SharedCapture { get; } = new();
     public SharedDetectionState SharedDetection { get; } = new();
-    public bool IsRunning => _cts != null && !_cts.IsCancellationRequested;
+    public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
 
     private long _lastCaptureDurationMs;
     private long _lastDetectionDurationMs;
@@ -103,6 +103,7 @@ public sealed class RecognitionPipelineService : IDisposable
         _captureTask = null;
         _detectionTask = null;
 
+        SharedCapture.Clear();
         SharedDetection.Clear();
         Volatile.Write(ref _lastPlottedImageBytes, null);
 

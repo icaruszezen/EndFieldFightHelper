@@ -6,17 +6,21 @@ namespace EndFieldFightHelper.Models;
 public sealed class SharedDetectionState
 {
     private long _frameId;
-    private IReadOnlyList<DetectionResult>? _results;
+    private DetectionResult[]? _results;
     private readonly object _lock = new();
 
     public long FrameId => Volatile.Read(ref _frameId);
 
     public void Update(long frameId, IReadOnlyList<DetectionResult> results)
     {
+        var snapshot = new DetectionResult[results.Count];
+        for (var i = 0; i < results.Count; i++)
+            snapshot[i] = results[i];
+
         lock (_lock)
         {
             _frameId = frameId;
-            _results = results;
+            _results = snapshot;
         }
     }
 
