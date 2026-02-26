@@ -1,0 +1,219 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:models="clr-namespace:EndFieldFightHelper.Models"
+             xmlns:suki="clr-namespace:SukiUI.Controls;assembly=SukiUI"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="800"
+             x:Class="EndFieldFightHelper.Views.InputTestPage"
+             x:DataType="vm:InputTestViewModel">
+
+    <ScrollViewer>
+        <StackPanel Spacing="10" Margin="20">
+
+            <!-- Window Selection & Mode -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="目标窗口" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <ComboBox Grid.Row="0" Grid.Column="0"
+                                  ItemsSource="{Binding Windows}"
+                                  SelectedItem="{Binding SelectedWindow}"
+                                  HorizontalAlignment="Stretch"
+                                  PlaceholderText="请选择目标窗口">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Row="0" Grid.Column="1"
+                                Content="刷新" Margin="10,0,0,0"
+                                Command="{Binding RefreshWindowsCommand}" />
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                    Orientation="Horizontal" Spacing="20" Margin="0,10,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="输入模式:" VerticalAlignment="Center" />
+                                <ComboBox SelectedIndex="0" MinWidth="140"
+                                          x:Name="MethodComboBox">
+                                    <ComboBoxItem Content="PostMessage" Tag="{x:Static models:InputMethod.PostMessage}" />
+                                    <ComboBoxItem Content="SendInput" Tag="{x:Static models:InputMethod.SendInput}" />
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <ToggleSwitch IsChecked="{Binding WaitForForeground}"
+                                              OnContent="等待前台" OffContent="直接发送" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Waiting Indicator -->
+            <Border Background="{DynamicResource WarningColor}"
+                    CornerRadius="8" Padding="12"
+                    IsVisible="{Binding IsWaitingForForeground}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0"
+                               Text="{Binding WaitStatusText}"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold" />
+                    <Button Grid.Column="1"
+                            Content="取消"
+                            Command="{Binding CancelWaitCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- Keyboard Test -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="键盘测试" FontWeight="SemiBold" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="虚拟键码 (VK):" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="1"
+                                       Value="{Binding KeyCode}"
+                                       Minimum="0" Maximum="255"
+                                       FormatString="0"
+                                       HorizontalAlignment="Stretch" />
+                        <Button Grid.Row="0" Grid.Column="2"
+                                Content="按下并释放" Margin="8,0,0,0"
+                                Command="{Binding SendKeyPressCommand}"
+                                Classes="Accent" />
+                        <Button Grid.Row="0" Grid.Column="3"
+                                Content="按下" Margin="4,0,0,0"
+                                Command="{Binding SendKeyDownCommand}" />
+                        <Button Grid.Row="0" Grid.Column="4"
+                                Content="释放" Margin="4,0,0,0"
+                                Command="{Binding SendKeyUpCommand}" />
+                    </Grid>
+
+                    <TextBlock Text="常用按键:" Opacity="0.7" Margin="0,4,0,0" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Content="W" Tag="87" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="A" Tag="65" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="S" Tag="83" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="D" Tag="68" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="Space" Tag="32" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="60" />
+                        <Button Content="Enter" Tag="13" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="60" />
+                        <Button Content="Esc" Tag="27" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="50" />
+                        <Button Content="Tab" Tag="9" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="50" />
+                        <Button Content="Shift" Tag="16" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="50" />
+                        <Button Content="Ctrl" Tag="17" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="50" />
+                        <Button Content="Alt" Tag="18" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="50" />
+                        <Button Content="F1" Tag="112" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="1" Tag="49" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="2" Tag="50" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="3" Tag="51" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                        <Button Content="4" Tag="52" Click="QuickKey_Click" Margin="0,0,4,4" MinWidth="40" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Mouse Button Test -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="鼠标按键测试" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="Auto,100,Auto,100,Auto,Auto" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="X:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="1"
+                                       Value="{Binding MouseX}" Minimum="0" />
+                        <TextBlock Grid.Row="0" Grid.Column="2"
+                                   Text="Y:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="3"
+                                       Value="{Binding MouseY}" Minimum="0" />
+                        <TextBlock Grid.Row="0" Grid.Column="4"
+                                   Text="按键:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                        <ComboBox Grid.Row="0" Grid.Column="5" MinWidth="100"
+                                  x:Name="MouseButtonComboBox"
+                                  SelectedIndex="0">
+                            <ComboBoxItem Content="左键" Tag="{x:Static models:MouseButton.Left}" />
+                            <ComboBoxItem Content="右键" Tag="{x:Static models:MouseButton.Right}" />
+                            <ComboBoxItem Content="中键" Tag="{x:Static models:MouseButton.Middle}" />
+                        </ComboBox>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="点击" Command="{Binding SendMouseClickCommand}" Classes="Accent" />
+                        <Button Content="按下" Command="{Binding SendMouseDownCommand}" />
+                        <Button Content="释放" Command="{Binding SendMouseUpCommand}" />
+                        <Button Content="移动到坐标" Command="{Binding SendMouseMoveCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Mouse Simulated Move -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="16">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="模拟鼠标运动" FontWeight="SemiBold" />
+                    <Grid ColumnDefinitions="Auto,80,Auto,80,Auto,80,Auto,80" RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="起点 X:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="1"
+                                       Value="{Binding FromX}" Minimum="0" />
+                        <TextBlock Grid.Row="0" Grid.Column="2"
+                                   Text="Y:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="3"
+                                       Value="{Binding FromY}" Minimum="0" />
+                        <TextBlock Grid.Row="0" Grid.Column="4"
+                                   Text="终点 X:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="5"
+                                       Value="{Binding ToX}" Minimum="0" />
+                        <TextBlock Grid.Row="0" Grid.Column="6"
+                                   Text="Y:" VerticalAlignment="Center" Margin="12,0,8,0" />
+                        <NumericUpDown Grid.Row="0" Grid.Column="7"
+                                       Value="{Binding ToY}" Minimum="0" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0"
+                                   Text="持续(ms):" VerticalAlignment="Center" Margin="0,8,8,0" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="1"
+                                       Value="{Binding MoveDuration}" Minimum="50" Maximum="10000"
+                                       Margin="0,8,0,0" />
+                        <TextBlock Grid.Row="1" Grid.Column="2"
+                                   Text="步数:" VerticalAlignment="Center" Margin="12,8,8,0" />
+                        <NumericUpDown Grid.Row="1" Grid.Column="3"
+                                       Value="{Binding MoveSteps}" Minimum="1" Maximum="1000"
+                                       Margin="0,8,0,0" />
+                    </Grid>
+                    <Button Content="开始模拟运动" Command="{Binding SimulateMouseMoveCommand}" Classes="Accent" />
+                </StackPanel>
+            </Border>
+
+            <!-- Log -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="16" MinHeight="160">
+                <Grid RowDefinitions="Auto,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="操作日志" FontWeight="SemiBold" />
+                        <Button Grid.Column="1" Content="清空" Command="{Binding ClearLogCommand}" />
+                    </Grid>
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{Binding LogMessages}"
+                             MaxHeight="200">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <SelectableTextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Status -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8" Padding="12">
+                <SelectableTextBlock Text="{Binding StatusMessage}"
+                                     HorizontalAlignment="Center" Opacity="0.8" />
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

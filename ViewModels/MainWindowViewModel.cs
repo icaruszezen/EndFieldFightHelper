@@ -15,17 +15,20 @@ public partial class MainWindowViewModel : ViewModelBase
     public SettingsViewModel SettingsViewModel { get; }
     public OverlayViewModel OverlayViewModel { get; }
     public YoloDetectionViewModel YoloDetectionViewModel { get; }
+    public InputTestViewModel InputTestViewModel { get; }
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
         var screenshotService = new ScreenshotService();
         var detectionService = new YoloDetectionService();
+        var inputService = new InputService();
 
         HomeViewModel = new HomeViewModel();
         SettingsViewModel = new SettingsViewModel(toastManager);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
+        InputTestViewModel = new InputTestViewModel(inputService);
 
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 

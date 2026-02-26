@@ -44,6 +44,15 @@
                 </suki:SukiSideMenuItem.PageContent>
             </suki:SukiSideMenuItem>
 
+            <suki:SukiSideMenuItem Header="输入测试" x:Name="InputTestMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M20,5A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7A2,2 0 0,1 4,5H20M4,7V17H20V7H4M6,9H8V11H6V9M10,9H12V11H10V9M14,9H16V11H14V9M18,9H19V11H18V9M5,13H6V15H5V13M7,13H9V15H7V13M10,13H14V15H10V13M15,13H17V15H15V13M18,13H19V15H18V13Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:InputTestPage DataContext="{Binding InputTestViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+
             <suki:SukiSideMenuItem Header="叠加显示" x:Name="OverlayMenuItem">
                 <suki:SukiSideMenuItem.Icon>
                     <PathIcon Data="M3,3H21V5H5V19H3V3M7,7H23V23H7V7Z" />
