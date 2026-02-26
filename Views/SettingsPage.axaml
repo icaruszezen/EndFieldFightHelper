@@ -146,89 +146,21 @@
                     <TextBlock Text="YOLO 检测设置" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock Text="配置 YOLO 推理参数；已加载模型会自动热重载" Opacity="0.7" />
 
-                    <Border Background="{DynamicResource SukiBackground}"
-                            CornerRadius="6" Padding="12,10">
-                        <TextBlock Text="{Binding CudaRuntimeSummary}"
-                                   FontSize="12"
-                                   Opacity="0.8" />
-                    </Border>
-                    
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="GPU 加速" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding GpuToggleHint}"
-                                       Opacity="0.7" FontSize="12"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                        <ToggleSwitch Grid.Column="1" 
-                                      IsChecked="{Binding UseGpu}" 
-                                      IsEnabled="{Binding IsCudaInstalled}"
-                                      VerticalAlignment="Center" />
-                    </Grid>
-                    
-                    <!-- CUDA 未安装：下载/指引 -->
-                    <StackPanel Spacing="8" Margin="0,4,0,0"
-                                IsVisible="{Binding !IsCudaInstalled}">
-                        <Border Background="{DynamicResource SukiBackground}"
-                                CornerRadius="6" Padding="12,10"
-                                IsVisible="{Binding !IsDownloadingCuda}">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="GPU 加速需要 NVIDIA CUDA 运行时（约 900MB 下载）"
-                                           Opacity="0.7" FontSize="12" TextWrapping="Wrap" />
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Content="下载 CUDA 运行时"
-                                            Command="{Binding DownloadCudaCommand}"
-                                            Classes="Accent" />
-                                    <Button Content="手动安装指引"
-                                            Command="{Binding OpenCudaGuideCommand}" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-                        
-                        <!-- 下载进度 -->
-                        <Border Background="{DynamicResource SukiBackground}"
-                                CornerRadius="6" Padding="12,10"
-                                IsVisible="{Binding IsDownloadingCuda}">
-                            <StackPanel Spacing="6">
-                                <TextBlock Text="{Binding CudaDownloadStatus}"
-                                           FontSize="12" Opacity="0.8" />
-                                <ProgressBar Minimum="0" Maximum="100"
-                                             Value="{Binding CudaDownloadProgress}"
-                                             Height="6" />
-                                <Button Content="取消下载"
-                                        Command="{Binding CancelCudaDownloadCommand}"
-                                        HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </Border>
+                    <!-- 推理设备选择 -->
+                    <StackPanel Spacing="4" Margin="0,10,0,0">
+                        <TextBlock Text="推理设备" FontWeight="SemiBold" />
+                        <TextBlock Text="选择用于 YOLO 推理的设备，GPU 设备将通过 DirectML 加速" 
+                                   Opacity="0.7" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding InferenceDevices}"
+                                  SelectedItem="{Binding SelectedInferenceDevice}"
+                                  HorizontalAlignment="Stretch" Margin="0,4,0,0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                     </StackPanel>
-
-                    <Border Background="{DynamicResource SukiBackground}"
-                            CornerRadius="6" Padding="12,10"
-                            IsVisible="{Binding ShowIdleCudaStatus}">
-                        <TextBlock Text="{Binding CudaDownloadStatus}"
-                                   FontSize="12" Opacity="0.8"
-                                   TextWrapping="Wrap" />
-                    </Border>
-                    
-                    <!-- CUDA 已安装 -->
-                    <Border Background="{DynamicResource SukiBackground}"
-                            CornerRadius="6" Padding="12,10"
-                            Margin="0,4,0,0"
-                            IsVisible="{Binding IsCudaInstalled}">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <Ellipse Width="8" Height="8">
-                                    <Ellipse.Fill>
-                                        <SolidColorBrush Color="#4CAF50" />
-                                    </Ellipse.Fill>
-                                </Ellipse>
-                                <TextBlock Text="CUDA 运行时组件就绪" FontSize="12" Opacity="0.8" />
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="卸载"
-                                    Command="{Binding UninstallCudaCommand}"
-                                    FontSize="12" Padding="8,4" />
-                        </Grid>
-                    </Border>
                     
                     <StackPanel Spacing="4" Margin="0,10,0,0">
                         <Grid ColumnDefinitions="*,Auto">

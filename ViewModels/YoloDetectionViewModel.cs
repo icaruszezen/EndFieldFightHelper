@@ -72,7 +72,7 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private CaptureMethod _currentMethod = CaptureMethod.PrintWindow;
 
-    private bool _useGpu;
+    private GpuDeviceInfo _inferenceDevice = GpuDeviceInfo.CpuDevice;
     private float _confidence = 0.3f;
     private float _iou = 0.45f;
 
@@ -90,26 +90,27 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         CurrentMethod = method;
     }
 
-    public void SetYoloSettings(bool useGpu, float confidence, float iou)
+    public void SetYoloSettings(GpuDeviceInfo device, float confidence, float iou)
     {
-        _useGpu = useGpu;
+        _inferenceDevice = device;
         _confidence = confidence;
         _iou = iou;
     }
 
-    public void TryLoadSavedModel(string? modelPath, bool useGpu = false,
+    public void TryLoadSavedModel(string? modelPath, GpuDeviceInfo? device = null,
         float confidence = 0.3f, float iou = 0.45f)
     {
-        SetYoloSettings(useGpu, confidence, iou);
+        device ??= GpuDeviceInfo.CpuDevice;
+        SetYoloSettings(device, confidence, iou);
         if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
         {
             try
             {
-                _detectionService.LoadModel(modelPath, useGpu, confidence, iou);
+                _detectionService.LoadModel(modelPath, device, confidence, iou);
                 IsModelLoaded = true;
                 UpdateModelStatusText();
 
-                if (useGpu && !_detectionService.IsUsingGpu)
+                if (!device.IsCpu && _detectionService.ActiveDevice.IsCpu)
                     StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
                 else
                     StatusMessage = "模型已加载，可以开始识别";
@@ -131,8 +132,7 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
     private void UpdateModelStatusText()
     {
         var fileName = Path.GetFileName(_detectionService.ModelPath);
-        var mode = _detectionService.IsUsingGpu ? "GPU" : "CPU";
-        ModelStatusText = $"已加载: {fileName} ({mode})";
+        ModelStatusText = $"已加载: {fileName} ({_detectionService.ActiveDevice.Name})";
     }
 
     [RelayCommand]
@@ -175,11 +175,11 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         try
         {
             StatusMessage = "正在加载模型...";
-            await Task.Run(() => _detectionService.LoadModel(filePath, _useGpu, _confidence, _iou));
+            await Task.Run(() => _detectionService.LoadModel(filePath, _inferenceDevice, _confidence, _iou));
             IsModelLoaded = true;
             UpdateModelStatusText();
 
-            if (_useGpu && !_detectionService.IsUsingGpu)
+            if (!_inferenceDevice.IsCpu && _detectionService.ActiveDevice.IsCpu)
                 StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
             else
                 StatusMessage = "模型加载成功";

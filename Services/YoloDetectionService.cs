@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Compunet.YoloSharp;
 using Compunet.YoloSharp.Plotting;
@@ -19,115 +17,19 @@ public class YoloDetectionService : IDisposable
 {
     private YoloPredictor? _predictor;
     private string? _currentModelPath;
-    private static bool? _gpuAvailableCache;
-    private static readonly object GpuDllPinLock = new();
-    private static readonly Dictionary<string, IntPtr> PinnedGpuDllHandles = new(StringComparer.OrdinalIgnoreCase);
-
-    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern IntPtr LoadLibrary(string lpFileName);
-
-    private static string ResolveProviderDirectory()
-    {
-        var runtimesDir = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native");
-        var providerPath = Path.Combine(runtimesDir, "onnxruntime_providers_cuda.dll");
-        return File.Exists(providerPath) ? runtimesDir : AppContext.BaseDirectory;
-    }
-
-    private static void EnsureGpuDependencyChainPinned()
-    {
-        lock (GpuDllPinLock)
-        {
-            var providerDir = ResolveProviderDirectory();
-            var preloadOrder = new[]
-            {
-                "cublasLt64_12.dll",
-                "cublas64_12.dll",
-                "cufft64_11.dll",
-                "cudart64_12.dll",
-                "cudnn_graph64_9.dll",
-                "cudnn_ops64_9.dll",
-                "cudnn_cnn64_9.dll",
-                "cudnn_adv64_9.dll",
-                "cudnn_heuristic64_9.dll",
-                "cudnn_engines_runtime_compiled64_9.dll",
-                "cudnn_engines_precompiled64_9.dll",
-                "cudnn64_9.dll",
-                "nvJitLink64_12.dll",
-                "nvrtc64_120_0.dll",
-                "nvrtc-builtins64_120.dll"
-            };
-
-            foreach (var fileName in preloadOrder)
-            {
-                if (PinnedGpuDllHandles.TryGetValue(fileName, out var pinned) && pinned != IntPtr.Zero)
-                {
-                    continue;
-                }
-
-                var fullPath = Path.Combine(providerDir, fileName);
-                if (!File.Exists(fullPath))
-                {
-                    continue;
-                }
-
-                var handle = LoadLibrary(fullPath);
-                if (handle == IntPtr.Zero)
-                {
-                    continue;
-                }
-
-                PinnedGpuDllHandles[fileName] = handle;
-            }
-        }
-    }
 
     public bool IsModelLoaded => _predictor != null;
     public string? ModelPath => _currentModelPath;
-
-    public static bool CudaDllsPresent => CudaDependencyService.CheckInstalled();
-
-    public static bool IsGpuAvailable()
-    {
-        if (_gpuAvailableCache.HasValue)
-        {
-            return _gpuAvailableCache.Value;
-        }
-
-        if (!CudaDllsPresent)
-        {
-            _gpuAvailableCache = false;
-            return false;
-        }
-
-        EnsureGpuDependencyChainPinned();
-
-        try
-        {
-            var sessionOptions = SessionOptions.MakeSessionOptionWithCudaProvider(0);
-            sessionOptions.Dispose();
-            _gpuAvailableCache = true;
-        }
-        catch
-        {
-            _gpuAvailableCache = false;
-        }
-
-        return _gpuAvailableCache.Value;
-    }
-
-    public static void ResetGpuCache()
-    {
-        _gpuAvailableCache = null;
-    }
-
-    public bool IsUsingGpu { get; private set; }
+    public GpuDeviceInfo ActiveDevice { get; private set; } = GpuDeviceInfo.CpuDevice;
     public string? GpuFallbackReason { get; private set; }
 
-    public void LoadModel(string modelPath, bool useGpu = false,
+    public void LoadModel(string modelPath, GpuDeviceInfo? device = null,
         float confidence = 0.3f, float iou = 0.45f)
     {
         if (!File.Exists(modelPath))
             throw new FileNotFoundException("模型文件不存在", modelPath);
+
+        device ??= GpuDeviceInfo.CpuDevice;
 
         var configuration = new YoloConfiguration
         {
@@ -138,54 +40,52 @@ public class YoloDetectionService : IDisposable
         };
 
         GpuFallbackReason = null;
+        YoloPredictor? newPredictor = null;
+        var actualDevice = GpuDeviceInfo.CpuDevice;
 
-        if (useGpu)
+        if (!device.IsCpu)
         {
-            EnsureGpuDependencyChainPinned();
-
             try
             {
-                var gpuOptions = new YoloPredictorOptions
-                {
-                    UseCuda = true,
-                    CudaDeviceId = 0,
-                    Configuration = configuration,
-                };
-                var gpuPredictor = new YoloPredictor(modelPath, gpuOptions);
+                var so = new SessionOptions();
+                so.AppendExecutionProvider_DML(device.DeviceId);
+                so.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
 
-                _predictor?.Dispose();
-                _predictor = gpuPredictor;
-                _currentModelPath = modelPath;
-                IsUsingGpu = true;
-                return;
+                newPredictor = new YoloPredictor(modelPath, new YoloPredictorOptions
+                {
+                    UseCuda = false,
+                    SessionOptions = so,
+                    Configuration = configuration,
+                });
+                actualDevice = device;
             }
             catch (Exception ex)
             {
                 GpuFallbackReason = ex.Message;
-                _gpuAvailableCache = false;
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
             }
         }
 
-        var sessionOptions = new SessionOptions
+        if (newPredictor == null)
         {
-            ExecutionMode = ExecutionMode.ORT_PARALLEL,
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-            EnableMemoryPattern = true,
-        };
-        var cpuOptions = new YoloPredictorOptions
-        {
-            UseCuda = false,
-            SessionOptions = sessionOptions,
-            Configuration = configuration,
-        };
-        var cpuPredictor = new YoloPredictor(modelPath, cpuOptions);
+            var cpuSession = new SessionOptions
+            {
+                ExecutionMode = ExecutionMode.ORT_PARALLEL,
+                GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+                EnableMemoryPattern = true,
+            };
+            newPredictor = new YoloPredictor(modelPath, new YoloPredictorOptions
+            {
+                UseCuda = false,
+                SessionOptions = cpuSession,
+                Configuration = configuration,
+            });
+            actualDevice = GpuDeviceInfo.CpuDevice;
+        }
 
         _predictor?.Dispose();
-        _predictor = cpuPredictor;
+        _predictor = newPredictor;
         _currentModelPath = modelPath;
-        IsUsingGpu = false;
+        ActiveDevice = actualDevice;
     }
 
     public void UnloadModel()

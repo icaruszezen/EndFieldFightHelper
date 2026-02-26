@@ -17,7 +17,8 @@ public class AppSettings
     public string OverlayText { get; set; } = "自定义内容示例";
     public CloseAction CloseAction { get; set; } = CloseAction.Ask;
     public string YoloModelPath { get; set; } = "";
-    public bool UseGpu { get; set; } = false;
+    public string GpuMode { get; set; } = "cpu";
+    public int GpuDeviceId { get; set; } = 0;
     public float YoloConfidence { get; set; } = 0.3f;
     public float YoloIoU { get; set; } = 0.45f;
 }

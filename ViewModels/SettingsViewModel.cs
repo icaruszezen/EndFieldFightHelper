@@ -24,7 +24,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly ISukiToastManager _toastManager;
     private OverlayViewModel? _overlayViewModel;
     private CancellationTokenSource? _saveCts;
-    
+
     [ObservableProperty]
     private CaptureMethod _selectedMethod = CaptureMethod.PrintWindow;
 
@@ -65,7 +65,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private string _yoloModelPath = "";
 
     [ObservableProperty]
-    private bool _useGpu;
+    private GpuDeviceInfo _selectedInferenceDevice = GpuDeviceInfo.CpuDevice;
 
     [ObservableProperty]
     private double _yoloConfidence = 0.3;
@@ -73,67 +73,30 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _yoloIoU = 0.45;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CudaRuntimeSummary))]
-    [NotifyPropertyChangedFor(nameof(GpuToggleHint))]
-    private bool _isGpuAvailable = YoloDetectionService.IsGpuAvailable();
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CudaRuntimeSummary))]
-    [NotifyPropertyChangedFor(nameof(GpuToggleHint))]
-    private bool _isCudaInstalled = CudaDependencyService.CheckInstalled();
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowIdleCudaStatus))]
-    private bool _isDownloadingCuda;
-
-    [ObservableProperty]
-    private double _cudaDownloadProgress;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCudaDownloadStatus))]
-    [NotifyPropertyChangedFor(nameof(ShowIdleCudaStatus))]
-    private string _cudaDownloadStatus = "";
-
-    private CancellationTokenSource? _cudaDownloadCts;
-    private readonly CudaDependencyService _cudaDependencyService = new();
-
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
+    public ObservableCollection<GpuDeviceInfo> InferenceDevices { get; } = new();
 
     public event Action<CaptureMethod>? CaptureMethodChanged;
     public event Action? YoloSettingsChanged;
 
-    public bool HasCudaDownloadStatus => !string.IsNullOrWhiteSpace(CudaDownloadStatus);
-    public bool ShowIdleCudaStatus => !IsDownloadingCuda && HasCudaDownloadStatus;
-    public string CudaRuntimeSummary => !IsCudaInstalled
-        ? "CUDA 运行时未安装"
-        : IsGpuAvailable
-            ? "CUDA 运行时已安装，可直接启用 GPU"
-            : "CUDA 运行时已安装，重启应用后可启用 GPU";
-    public string GpuToggleHint => !IsCudaInstalled
-        ? "需要先安装 CUDA 运行时（见下方）"
-        : IsGpuAvailable
-            ? "使用 CUDA 进行 GPU 加速推理"
-            : "CUDA 已安装，如无法启用 GPU 请先重启应用";
-
-    public string PrintWindowDescription => 
+    public string PrintWindowDescription =>
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
         "支持 DWM 合成窗口，适合大多数现代应用程序。某些使用硬件加速渲染的应用可能返回黑屏。";
 
-    public string GdiPlusDescription => 
+    public string GdiPlusDescription =>
         "GDI+ CopyFromScreen 使用 .NET 内置的 Graphics 类进行截图。" +
         "简单易用，但只能截取屏幕上当前可见的内容，被遮挡的部分无法截取。";
 
-    public string BitBltDescription => 
+    public string BitBltDescription =>
         "BitBlt 是经典的 GDI 位块传输方法。" +
         "但无法截取使用 DirectX/硬件加速的窗口内容，这些窗口可能显示为黑色。";
 
-    public string DxgiDesktopDuplicationDescription => 
+    public string DxgiDesktopDuplicationDescription =>
         "DXGI Desktop Duplication 使用 Windows 桌面复制 API，" +
         "可以高效捕获包括 DirectX/硬件加速在内的所有窗口内容。" +
         "性能优异且支持 HDR，但仅支持 Windows 8 及以上系统，且只能截取屏幕上可见的内容。";
 
-    public string WindowsGraphicsCaptureDescription => 
+    public string WindowsGraphicsCaptureDescription =>
         "Windows Graphics Capture 使用现代 WinRT 捕获 API，" +
         "可以截取被遮挡的窗口内容，同时支持 DirectX/硬件加速渲染。" +
         "通过禁用黄色边框实现无感截图（需要 Windows 11），最低支持 Windows 10 1903。";
@@ -147,9 +110,17 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             "settings.json");
 
         _overlayService = new OverlayService();
-        
+
+        RefreshInferenceDevices();
         InitializeColorThemes();
         LoadSettings();
+    }
+
+    private void RefreshInferenceDevices()
+    {
+        InferenceDevices.Clear();
+        foreach (var dev in GpuDeviceService.EnumerateAllDevices())
+            InferenceDevices.Add(dev);
     }
 
     private void InitializeColorThemes()
@@ -242,7 +213,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         if (!_isLoading) ScheduleSave();
     }
 
-    partial void OnUseGpuChanged(bool value)
+    partial void OnSelectedInferenceDeviceChanged(GpuDeviceInfo value)
     {
         if (!_isLoading)
         {
@@ -306,87 +277,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SelectedColorTheme = theme;
     }
 
-    [RelayCommand]
-    private async Task DownloadCudaAsync()
-    {
-        if (IsDownloadingCuda) return;
-        IsDownloadingCuda = true;
-        CudaDownloadProgress = 0;
-        CudaDownloadStatus = "准备下载 CUDA 运行时...";
-        _cudaDownloadCts = new CancellationTokenSource();
-
-        try
-        {
-            var progress = new Progress<CudaDownloadProgress>(p =>
-            {
-                var extractingSuffix = " (解压中)";
-                var isExtracting = p.FileName.EndsWith(extractingSuffix, StringComparison.Ordinal);
-                var packageName = isExtracting
-                    ? p.FileName[..^extractingSuffix.Length]
-                    : p.FileName;
-
-                CudaDownloadProgress = ((p.FileIndex - 1) * 100.0 + p.FileProgress) / p.TotalFiles;
-                CudaDownloadStatus = isExtracting
-                    ? $"正在安装 {packageName} ({p.FileIndex}/{p.TotalFiles})..."
-                    : $"正在下载 {packageName} ({p.FileIndex}/{p.TotalFiles})... {p.FileProgress:F0}%";
-            });
-
-            await _cudaDependencyService.DownloadAndInstallAsync(progress, _cudaDownloadCts.Token);
-
-            RefreshCudaState();
-            CudaDownloadStatus = IsCudaInstalled
-                ? CudaRuntimeSummary
-                : "CUDA 安装未完成，请重试";
-        }
-        catch (OperationCanceledException)
-        {
-            CudaDownloadStatus = "下载已取消";
-        }
-        catch (Exception ex)
-        {
-            var message = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault() ?? ex.Message;
-            CudaDownloadStatus = $"下载失败：{message}";
-        }
-        finally
-        {
-            IsDownloadingCuda = false;
-            _cudaDownloadCts?.Dispose();
-            _cudaDownloadCts = null;
-        }
-    }
-
-    [RelayCommand]
-    private void CancelCudaDownload()
-    {
-        _cudaDownloadCts?.Cancel();
-    }
-
-    [RelayCommand]
-    private void UninstallCuda()
-    {
-        CudaDependencyService.DeleteCudaDlls();
-        YoloDetectionService.ResetGpuCache();
-        IsCudaInstalled = false;
-        IsGpuAvailable = false;
-        UseGpu = false;
-        CudaDownloadStatus = "CUDA 运行时已卸载";
-    }
-
-    [RelayCommand]
-    private void OpenCudaGuide()
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "https://developer.nvidia.com/cuda-downloads",
-                UseShellExecute = true
-            });
-        }
-        catch { }
-    }
-
     private void LoadSettings()
     {
         _isLoading = true;
@@ -410,10 +300,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     OverlayText = settings.OverlayText;
                     CloseAction = settings.CloseAction;
                     YoloModelPath = settings.YoloModelPath;
-                    UseGpu = settings.UseGpu;
                     YoloConfidence = settings.YoloConfidence;
                     YoloIoU = settings.YoloIoU;
-                    
+
+                    var savedDeviceId = string.Equals(settings.GpuMode, "directml", StringComparison.OrdinalIgnoreCase)
+                        ? settings.GpuDeviceId
+                        : -1;
+                    SelectedInferenceDevice = InferenceDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId)
+                                              ?? GpuDeviceInfo.CpuDevice;
+
                     var savedTheme = AvailableColorThemes
                         .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
                     SelectedColorTheme = savedTheme ?? (AvailableColorThemes.Count > 0 ? AvailableColorThemes[0] : null);
@@ -421,7 +316,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             }
             else if (AvailableColorThemes.Count > 0)
             {
-                SelectedColorTheme = AvailableColorThemes.FirstOrDefault(t => t.DisplayName == "Orange") 
+                SelectedColorTheme = AvailableColorThemes.FirstOrDefault(t => t.DisplayName == "Orange")
                     ?? AvailableColorThemes[0];
             }
         }
@@ -462,6 +357,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 Directory.CreateDirectory(dir);
             }
 
+            var device = SelectedInferenceDevice;
             var settings = new AppSettings
             {
                 DefaultCaptureMethod = SelectedMethod,
@@ -477,9 +373,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 OverlayText = OverlayText,
                 CloseAction = CloseAction,
                 YoloModelPath = YoloModelPath,
-                UseGpu = UseGpu,
+                GpuMode = device.IsCpu ? "cpu" : "directml",
+                GpuDeviceId = device.IsCpu ? 0 : device.DeviceId,
                 YoloConfidence = (float)YoloConfidence,
-                YoloIoU = (float)YoloIoU
+                YoloIoU = (float)YoloIoU,
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -527,12 +424,5 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _saveCts?.Cancel();
         _saveCts?.Dispose();
         _overlayService.Dispose();
-    }
-
-    private void RefreshCudaState()
-    {
-        IsCudaInstalled = CudaDependencyService.CheckInstalled();
-        YoloDetectionService.ResetGpuCache();
-        IsGpuAvailable = YoloDetectionService.IsGpuAvailable();
     }
 }

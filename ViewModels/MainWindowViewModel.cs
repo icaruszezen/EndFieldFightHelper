@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 using SukiUI.Toasts;
 
@@ -38,7 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         YoloDetectionViewModel.TryLoadSavedModel(
             SettingsViewModel.YoloModelPath,
-            SettingsViewModel.UseGpu,
+            SettingsViewModel.SelectedInferenceDevice,
             (float)SettingsViewModel.YoloConfidence,
             (float)SettingsViewModel.YoloIoU);
         YoloDetectionViewModel.ModelPathChanged += path => SettingsViewModel.UpdateYoloModelPath(path);
@@ -47,7 +48,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SettingsViewModel.YoloSettingsChanged += async () =>
         {
             YoloDetectionViewModel.SetYoloSettings(
-                SettingsViewModel.UseGpu,
+                SettingsViewModel.SelectedInferenceDevice,
                 (float)SettingsViewModel.YoloConfidence,
                 (float)SettingsViewModel.YoloIoU);
 
@@ -57,7 +58,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             isReloading = true;
             var modelPath = detectionService.ModelPath;
-            var useGpu = SettingsViewModel.UseGpu;
+            var device = SettingsViewModel.SelectedInferenceDevice;
             var conf = (float)SettingsViewModel.YoloConfidence;
             var iou = (float)SettingsViewModel.YoloIoU;
 
@@ -65,10 +66,10 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 YoloDetectionViewModel.StatusMessage = "正在重新加载模型...";
                 await System.Threading.Tasks.Task.Run(() =>
-                    detectionService.LoadModel(modelPath, useGpu, conf, iou));
+                    detectionService.LoadModel(modelPath, device, conf, iou));
                 YoloDetectionViewModel.UpdateModelStatus();
 
-                if (useGpu && !detectionService.IsUsingGpu)
+                if (!device.IsCpu && detectionService.ActiveDevice.IsCpu)
                 {
                     YoloDetectionViewModel.StatusMessage =
                         $"GPU 不可用，已回退到 CPU 模式（{detectionService.GpuFallbackReason}）";
@@ -76,7 +77,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 else
                 {
                     YoloDetectionViewModel.StatusMessage =
-                        $"模型已重新加载 ({(detectionService.IsUsingGpu ? "GPU" : "CPU")})";
+                        $"模型已重新加载 ({detectionService.ActiveDevice.Name})";
                 }
             }
             catch (System.Exception ex)
