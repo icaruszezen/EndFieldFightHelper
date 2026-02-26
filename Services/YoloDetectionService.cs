@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Compunet.YoloSharp;
 using Compunet.YoloSharp.Plotting;
@@ -19,14 +20,86 @@ public class YoloDetectionService : IDisposable
     private YoloPredictor? _predictor;
     private string? _currentModelPath;
     private static bool? _gpuAvailableCache;
+    private static readonly object GpuDllPinLock = new();
+    private static readonly Dictionary<string, IntPtr> PinnedGpuDllHandles = new(StringComparer.OrdinalIgnoreCase);
+
+    [DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern IntPtr LoadLibrary(string lpFileName);
+
+    private static string ResolveProviderDirectory()
+    {
+        var runtimesDir = Path.Combine(AppContext.BaseDirectory, "runtimes", "win-x64", "native");
+        var providerPath = Path.Combine(runtimesDir, "onnxruntime_providers_cuda.dll");
+        return File.Exists(providerPath) ? runtimesDir : AppContext.BaseDirectory;
+    }
+
+    private static void EnsureGpuDependencyChainPinned()
+    {
+        lock (GpuDllPinLock)
+        {
+            var providerDir = ResolveProviderDirectory();
+            var preloadOrder = new[]
+            {
+                "cublasLt64_12.dll",
+                "cublas64_12.dll",
+                "cufft64_11.dll",
+                "cudart64_12.dll",
+                "cudnn_graph64_9.dll",
+                "cudnn_ops64_9.dll",
+                "cudnn_cnn64_9.dll",
+                "cudnn_adv64_9.dll",
+                "cudnn_heuristic64_9.dll",
+                "cudnn_engines_runtime_compiled64_9.dll",
+                "cudnn_engines_precompiled64_9.dll",
+                "cudnn64_9.dll",
+                "nvJitLink64_12.dll",
+                "nvrtc64_120_0.dll",
+                "nvrtc-builtins64_120.dll"
+            };
+
+            foreach (var fileName in preloadOrder)
+            {
+                if (PinnedGpuDllHandles.TryGetValue(fileName, out var pinned) && pinned != IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                var fullPath = Path.Combine(providerDir, fileName);
+                if (!File.Exists(fullPath))
+                {
+                    continue;
+                }
+
+                var handle = LoadLibrary(fullPath);
+                if (handle == IntPtr.Zero)
+                {
+                    continue;
+                }
+
+                PinnedGpuDllHandles[fileName] = handle;
+            }
+        }
+    }
 
     public bool IsModelLoaded => _predictor != null;
     public string? ModelPath => _currentModelPath;
 
+    public static bool CudaDllsPresent => CudaDependencyService.CheckInstalled();
+
     public static bool IsGpuAvailable()
     {
         if (_gpuAvailableCache.HasValue)
+        {
             return _gpuAvailableCache.Value;
+        }
+
+        if (!CudaDllsPresent)
+        {
+            _gpuAvailableCache = false;
+            return false;
+        }
+
+        EnsureGpuDependencyChainPinned();
 
         try
         {
@@ -40,6 +113,11 @@ public class YoloDetectionService : IDisposable
         }
 
         return _gpuAvailableCache.Value;
+    }
+
+    public static void ResetGpuCache()
+    {
+        _gpuAvailableCache = null;
     }
 
     public bool IsUsingGpu { get; private set; }
@@ -63,6 +141,8 @@ public class YoloDetectionService : IDisposable
 
         if (useGpu)
         {
+            EnsureGpuDependencyChainPinned();
+
             try
             {
                 var gpuOptions = new YoloPredictorOptions
@@ -83,6 +163,8 @@ public class YoloDetectionService : IDisposable
             {
                 GpuFallbackReason = ex.Message;
                 _gpuAvailableCache = false;
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             }
         }
 

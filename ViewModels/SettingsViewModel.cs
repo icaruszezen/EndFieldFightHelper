@@ -73,12 +73,48 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _yoloIoU = 0.45;
 
-    public bool IsGpuAvailable { get; } = YoloDetectionService.IsGpuAvailable();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CudaRuntimeSummary))]
+    [NotifyPropertyChangedFor(nameof(GpuToggleHint))]
+    private bool _isGpuAvailable = YoloDetectionService.IsGpuAvailable();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CudaRuntimeSummary))]
+    [NotifyPropertyChangedFor(nameof(GpuToggleHint))]
+    private bool _isCudaInstalled = CudaDependencyService.CheckInstalled();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowIdleCudaStatus))]
+    private bool _isDownloadingCuda;
+
+    [ObservableProperty]
+    private double _cudaDownloadProgress;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCudaDownloadStatus))]
+    [NotifyPropertyChangedFor(nameof(ShowIdleCudaStatus))]
+    private string _cudaDownloadStatus = "";
+
+    private CancellationTokenSource? _cudaDownloadCts;
+    private readonly CudaDependencyService _cudaDependencyService = new();
 
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
 
     public event Action<CaptureMethod>? CaptureMethodChanged;
     public event Action? YoloSettingsChanged;
+
+    public bool HasCudaDownloadStatus => !string.IsNullOrWhiteSpace(CudaDownloadStatus);
+    public bool ShowIdleCudaStatus => !IsDownloadingCuda && HasCudaDownloadStatus;
+    public string CudaRuntimeSummary => !IsCudaInstalled
+        ? "CUDA 运行时未安装"
+        : IsGpuAvailable
+            ? "CUDA 运行时已安装，可直接启用 GPU"
+            : "CUDA 运行时已安装，重启应用后可启用 GPU";
+    public string GpuToggleHint => !IsCudaInstalled
+        ? "需要先安装 CUDA 运行时（见下方）"
+        : IsGpuAvailable
+            ? "使用 CUDA 进行 GPU 加速推理"
+            : "CUDA 已安装，如无法启用 GPU 请先重启应用";
 
     public string PrintWindowDescription => 
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
@@ -270,6 +306,87 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SelectedColorTheme = theme;
     }
 
+    [RelayCommand]
+    private async Task DownloadCudaAsync()
+    {
+        if (IsDownloadingCuda) return;
+        IsDownloadingCuda = true;
+        CudaDownloadProgress = 0;
+        CudaDownloadStatus = "准备下载 CUDA 运行时...";
+        _cudaDownloadCts = new CancellationTokenSource();
+
+        try
+        {
+            var progress = new Progress<CudaDownloadProgress>(p =>
+            {
+                var extractingSuffix = " (解压中)";
+                var isExtracting = p.FileName.EndsWith(extractingSuffix, StringComparison.Ordinal);
+                var packageName = isExtracting
+                    ? p.FileName[..^extractingSuffix.Length]
+                    : p.FileName;
+
+                CudaDownloadProgress = ((p.FileIndex - 1) * 100.0 + p.FileProgress) / p.TotalFiles;
+                CudaDownloadStatus = isExtracting
+                    ? $"正在安装 {packageName} ({p.FileIndex}/{p.TotalFiles})..."
+                    : $"正在下载 {packageName} ({p.FileIndex}/{p.TotalFiles})... {p.FileProgress:F0}%";
+            });
+
+            await _cudaDependencyService.DownloadAndInstallAsync(progress, _cudaDownloadCts.Token);
+
+            RefreshCudaState();
+            CudaDownloadStatus = IsCudaInstalled
+                ? CudaRuntimeSummary
+                : "CUDA 安装未完成，请重试";
+        }
+        catch (OperationCanceledException)
+        {
+            CudaDownloadStatus = "下载已取消";
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault() ?? ex.Message;
+            CudaDownloadStatus = $"下载失败：{message}";
+        }
+        finally
+        {
+            IsDownloadingCuda = false;
+            _cudaDownloadCts?.Dispose();
+            _cudaDownloadCts = null;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelCudaDownload()
+    {
+        _cudaDownloadCts?.Cancel();
+    }
+
+    [RelayCommand]
+    private void UninstallCuda()
+    {
+        CudaDependencyService.DeleteCudaDlls();
+        YoloDetectionService.ResetGpuCache();
+        IsCudaInstalled = false;
+        IsGpuAvailable = false;
+        UseGpu = false;
+        CudaDownloadStatus = "CUDA 运行时已卸载";
+    }
+
+    [RelayCommand]
+    private void OpenCudaGuide()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://developer.nvidia.com/cuda-downloads",
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
     private void LoadSettings()
     {
         _isLoading = true;
@@ -410,5 +527,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _saveCts?.Cancel();
         _saveCts?.Dispose();
         _overlayService.Dispose();
+    }
+
+    private void RefreshCudaState()
+    {
+        IsCudaInstalled = CudaDependencyService.CheckInstalled();
+        YoloDetectionService.ResetGpuCache();
+        IsGpuAvailable = YoloDetectionService.IsGpuAvailable();
     }
 }

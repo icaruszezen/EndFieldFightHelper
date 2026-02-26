@@ -43,6 +43,7 @@ public partial class MainWindowViewModel : ViewModelBase
             (float)SettingsViewModel.YoloIoU);
         YoloDetectionViewModel.ModelPathChanged += path => SettingsViewModel.UpdateYoloModelPath(path);
 
+        var isReloading = false;
         SettingsViewModel.YoloSettingsChanged += async () =>
         {
             YoloDetectionViewModel.SetYoloSettings(
@@ -50,37 +51,41 @@ public partial class MainWindowViewModel : ViewModelBase
                 (float)SettingsViewModel.YoloConfidence,
                 (float)SettingsViewModel.YoloIoU);
 
-            if (detectionService.IsModelLoaded && !string.IsNullOrEmpty(detectionService.ModelPath))
+            if (isReloading) return;
+            if (!detectionService.IsModelLoaded || string.IsNullOrEmpty(detectionService.ModelPath))
+                return;
+
+            isReloading = true;
+            var modelPath = detectionService.ModelPath;
+            var useGpu = SettingsViewModel.UseGpu;
+            var conf = (float)SettingsViewModel.YoloConfidence;
+            var iou = (float)SettingsViewModel.YoloIoU;
+
+            try
             {
-                var modelPath = detectionService.ModelPath;
-                var useGpu = SettingsViewModel.UseGpu;
-                var conf = (float)SettingsViewModel.YoloConfidence;
-                var iou = (float)SettingsViewModel.YoloIoU;
+                YoloDetectionViewModel.StatusMessage = "正在重新加载模型...";
+                await System.Threading.Tasks.Task.Run(() =>
+                    detectionService.LoadModel(modelPath, useGpu, conf, iou));
+                YoloDetectionViewModel.UpdateModelStatus();
 
-                try
+                if (useGpu && !detectionService.IsUsingGpu)
                 {
-                    YoloDetectionViewModel.StatusMessage = "正在重新加载模型...";
-                    await System.Threading.Tasks.Task.Run(() =>
-                        detectionService.LoadModel(modelPath, useGpu, conf, iou));
-                    YoloDetectionViewModel.UpdateModelStatus();
-
-                    if (useGpu && !detectionService.IsUsingGpu)
-                    {
-                        SettingsViewModel.UseGpu = false;
-                        YoloDetectionViewModel.StatusMessage =
-                            $"GPU 不可用，已回退到 CPU 模式（{detectionService.GpuFallbackReason}）";
-                    }
-                    else
-                    {
-                        YoloDetectionViewModel.StatusMessage =
-                            $"模型已重新加载 ({(detectionService.IsUsingGpu ? "GPU" : "CPU")})";
-                    }
+                    YoloDetectionViewModel.StatusMessage =
+                        $"GPU 不可用，已回退到 CPU 模式（{detectionService.GpuFallbackReason}）";
                 }
-                catch (System.Exception ex)
+                else
                 {
-                    YoloDetectionViewModel.IsModelLoaded = false;
-                    YoloDetectionViewModel.StatusMessage = $"模型重载失败: {ex.Message}";
+                    YoloDetectionViewModel.StatusMessage =
+                        $"模型已重新加载 ({(detectionService.IsUsingGpu ? "GPU" : "CPU")})";
                 }
+            }
+            catch (System.Exception ex)
+            {
+                YoloDetectionViewModel.StatusMessage = $"模型重载失败: {ex.Message}";
+            }
+            finally
+            {
+                isReloading = false;
             }
         };
 
