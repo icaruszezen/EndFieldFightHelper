@@ -294,17 +294,26 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
             while (!_continuousCts.Token.IsCancellationRequested)
             {
                 _currentImagePath = null;
-                _currentBitmap?.Dispose();
 
                 var captureSw = Stopwatch.StartNew();
-                _currentBitmap = _screenshotService.CaptureWindow(SelectedWindow, CurrentMethod);
+                var newBitmap = _screenshotService.CaptureWindow(SelectedWindow, CurrentMethod);
                 captureSw.Stop();
-                CaptureDurationText = $"截图耗时: {captureSw.ElapsedMilliseconds}ms";
 
-                if (_currentBitmap == null)
+                if (newBitmap != null)
+                {
+                    _currentBitmap?.Dispose();
+                    _currentBitmap = newBitmap;
+                    CaptureDurationText = $"截图耗时: {captureSw.ElapsedMilliseconds}ms";
+                }
+                else if (_currentBitmap == null)
                 {
                     StatusMessage = "截图失败，持续识别已停止";
                     break;
+                }
+                else
+                {
+                    await Task.Delay(1, _continuousCts.Token);
+                    continue;
                 }
 
                 await RunDetectionAsync();

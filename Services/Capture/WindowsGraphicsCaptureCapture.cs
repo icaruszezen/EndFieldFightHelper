@@ -170,8 +170,10 @@ public static class WindowsGraphicsCaptureCapture
                     isNewSession = true;
                 }
 
-                int timeoutMs = isNewSession ? 2000 : 200;
-                _frameReadyEvent.Wait(timeoutMs);
+                if (isNewSession)
+                {
+                    _frameReadyEvent.Wait(2000);
+                }
                 _frameReadyEvent.Reset();
 
                 Direct3D11CaptureFrame? latestFrame = null;
