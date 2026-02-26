@@ -70,18 +70,22 @@ public partial class MainWindowViewModel : ViewModelBase
                 (float)SettingsViewModel.YoloIoU);
 
             if (isReloading) return;
-            if (!detectionService.IsModelLoaded || string.IsNullOrEmpty(detectionService.ModelPath))
+
+            var modelPath = !string.IsNullOrEmpty(SettingsViewModel.YoloModelPath)
+                ? SettingsViewModel.YoloModelPath
+                : detectionService.ModelPath;
+
+            if (string.IsNullOrEmpty(modelPath) || !System.IO.File.Exists(modelPath))
                 return;
 
             isReloading = true;
-            var modelPath = detectionService.ModelPath;
             var device = SettingsViewModel.SelectedInferenceDevice;
             var conf = (float)SettingsViewModel.YoloConfidence;
             var iou = (float)SettingsViewModel.YoloIoU;
 
             try
             {
-                YoloDetectionViewModel.StatusMessage = "正在重新加载模型...";
+                YoloDetectionViewModel.StatusMessage = "正在加载模型...";
                 await System.Threading.Tasks.Task.Run(() =>
                     detectionService.LoadModel(modelPath, device, conf, iou));
                 YoloDetectionViewModel.UpdateModelStatus();
@@ -94,12 +98,12 @@ public partial class MainWindowViewModel : ViewModelBase
                 else
                 {
                     YoloDetectionViewModel.StatusMessage =
-                        $"模型已重新加载 ({detectionService.ActiveDevice.Name})";
+                        $"模型已加载 ({detectionService.ActiveDevice.Name})";
                 }
             }
             catch (System.Exception ex)
             {
-                YoloDetectionViewModel.StatusMessage = $"模型重载失败: {ex.Message}";
+                YoloDetectionViewModel.StatusMessage = $"模型加载失败: {ex.Message}";
             }
             finally
             {

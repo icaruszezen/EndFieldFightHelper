@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EndFieldFightHelper.Models;
@@ -68,7 +69,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private CloseAction _closeAction = CloseAction.Ask;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(YoloModelDisplayText))]
     private string _yoloModelPath = "";
+
+    public string YoloModelDisplayText => string.IsNullOrEmpty(YoloModelPath)
+        ? "未选择模型"
+        : Path.GetFileName(YoloModelPath);
 
     [ObservableProperty]
     private GpuDeviceInfo _selectedInferenceDevice = GpuDeviceInfo.CpuDevice;
@@ -229,7 +235,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     partial void OnYoloModelPathChanged(string value)
     {
-        if (!_isLoading) ScheduleSave();
+        if (!_isLoading)
+        {
+            ScheduleSave();
+            YoloSettingsChanged?.Invoke();
+        }
     }
 
     partial void OnSelectedInferenceDeviceChanged(GpuDeviceInfo value)
@@ -268,6 +278,26 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public void UpdateYoloModelPath(string path)
     {
         YoloModelPath = path;
+    }
+
+    [RelayCommand]
+    private async Task SelectYoloModelAsync(IStorageProvider? storageProvider)
+    {
+        if (storageProvider == null) return;
+
+        var files = await storageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "选择 YOLO 模型文件",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("ONNX 模型") { Patterns = new[] { "*.onnx" } },
+                new FilePickerFileType("所有文件") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (files.Count == 0) return;
+        YoloModelPath = files[0].Path.LocalPath;
     }
 
     [RelayCommand]

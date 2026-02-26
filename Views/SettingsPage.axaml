@@ -155,6 +155,28 @@
                     <TextBlock Text="YOLO 检测设置" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock Text="配置 YOLO 推理参数；已加载模型会自动热重载" Opacity="0.7" />
 
+                    <!-- YOLO 模型选择 -->
+                    <StackPanel Spacing="4" Margin="0,10,0,0">
+                        <TextBlock Text="YOLO 模型" FontWeight="SemiBold" />
+                        <TextBlock Text="选择 YOLO ONNX 模型文件" Opacity="0.7" FontSize="12" />
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                            <Border Grid.Column="0"
+                                    Background="{DynamicResource SukiBackground}"
+                                    CornerRadius="4"
+                                    Padding="10,8"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding YoloModelDisplayText}"
+                                           Opacity="0.8"
+                                           FontSize="12"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Border>
+                            <Button Grid.Column="1" Content="选择模型"
+                                    Command="{Binding SelectYoloModelCommand}"
+                                    CommandParameter="{Binding $parent[TopLevel].StorageProvider}"
+                                    Margin="10,0,0,0" />
+                        </Grid>
+                    </StackPanel>
+                    
                     <!-- 推理设备选择 -->
                     <StackPanel Spacing="4" Margin="0,10,0,0">
                         <TextBlock Text="推理设备" FontWeight="SemiBold" />
