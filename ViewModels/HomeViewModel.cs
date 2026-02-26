@@ -17,6 +17,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 {
     private readonly IScreenshotService _screenshotService;
     private readonly OverlayService _overlayService;
+    private readonly RecognitionPipelineService _pipelineService;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
 
@@ -55,10 +56,15 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<string> LogMessages { get; } = new();
 
-    public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService)
+    public RecognitionPipelineService PipelineService => _pipelineService;
+
+    public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService,
+        RecognitionPipelineService pipelineService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
+        _pipelineService = pipelineService;
+        _pipelineService.Log += msg => AddLog(msg);
         FindEndfieldWindow();
     }
 
@@ -173,9 +179,20 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             {
                 FindEndfieldWindow();
             }
+
+            if (EndfieldWindow != null)
+            {
+                _pipelineService.Start(EndfieldWindow.Handle, _captureMethod);
+            }
+            else
+            {
+                AddLog("无法启动识别管道：未绑定 Endfield 窗口");
+                IsBattleAssistEnabled = false;
+            }
         }
         else
         {
+            _pipelineService.Stop();
             AddLog("战斗辅助已关闭");
             if (IsPreviewRunning) StopPreview();
             if (IsBattleOverlayEnabled)
@@ -262,6 +279,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _pipelineService.Stop();
         _previewTimer?.Dispose();
         _previewTimer = null;
         PreviewImage?.Dispose();

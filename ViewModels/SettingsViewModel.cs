@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -15,6 +16,11 @@ using SukiUI.Models;
 using SukiUI.Toasts;
 
 namespace EndFieldFightHelper.ViewModels;
+
+public record FrameRateOption(int Value, string Label)
+{
+    public override string ToString() => Label;
+}
 
 public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
@@ -73,11 +79,24 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private double _yoloIoU = 0.45;
 
+    [ObservableProperty]
+    private FrameRateOption _selectedFrameRateLimit;
+
+    public static IReadOnlyList<FrameRateOption> FrameRateLimitOptions { get; } =
+    [
+        new(30, "30 FPS"),
+        new(60, "60 FPS"),
+        new(0, "无限制"),
+    ];
+
+    public int CaptureFrameRateLimit => SelectedFrameRateLimit.Value;
+
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
     public ObservableCollection<GpuDeviceInfo> InferenceDevices { get; } = new();
 
     public event Action<CaptureMethod>? CaptureMethodChanged;
     public event Action? YoloSettingsChanged;
+    public event Action<int>? CaptureFrameRateLimitChanged;
 
     public string PrintWindowDescription =>
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
@@ -105,6 +124,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     {
         _toastManager = toastManager;
         _overlayService = overlayService;
+        _selectedFrameRateLimit = FrameRateLimitOptions[1]; // 60 FPS
         _settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EndFieldFightHelper",
@@ -239,6 +259,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         }
     }
 
+    partial void OnSelectedFrameRateLimitChanged(FrameRateOption value)
+    {
+        CaptureFrameRateLimitChanged?.Invoke(value.Value);
+        if (!_isLoading) ScheduleSave();
+    }
+
     public void UpdateYoloModelPath(string path)
     {
         YoloModelPath = path;
@@ -301,6 +327,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     YoloModelPath = settings.YoloModelPath;
                     YoloConfidence = settings.YoloConfidence;
                     YoloIoU = settings.YoloIoU;
+                    SelectedFrameRateLimit = FrameRateLimitOptions.FirstOrDefault(o => o.Value == settings.CaptureFrameRateLimit)
+                                             ?? FrameRateLimitOptions[1];
 
                     var savedDeviceId = string.Equals(settings.GpuMode, "directml", StringComparison.OrdinalIgnoreCase)
                         ? settings.GpuDeviceId
@@ -376,6 +404,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 GpuDeviceId = device.IsCpu ? 0 : device.DeviceId,
                 YoloConfidence = (float)YoloConfidence,
                 YoloIoU = (float)YoloIoU,
+                CaptureFrameRateLimit = SelectedFrameRateLimit.Value,
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });

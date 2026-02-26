@@ -16,6 +16,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public OverlayViewModel OverlayViewModel { get; }
     public YoloDetectionViewModel YoloDetectionViewModel { get; }
     public InputTestViewModel InputTestViewModel { get; }
+    public DebugViewModel DebugViewModel { get; }
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
@@ -24,12 +25,15 @@ public partial class MainWindowViewModel : ViewModelBase
         var inputService = new InputService();
         var overlayService = new OverlayService();
 
-        HomeViewModel = new HomeViewModel(screenshotService, overlayService);
+        var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
+
+        HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
         InputTestViewModel = new InputTestViewModel(inputService);
+        DebugViewModel = new DebugViewModel(pipelineService);
 
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
@@ -42,6 +46,11 @@ public partial class MainWindowViewModel : ViewModelBase
         ScreenshotViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
         YoloDetectionViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
         HomeViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
+
+        static int FpsToIntervalMs(int fps) => fps > 0 ? 1000 / fps : 0;
+        pipelineService.CaptureFrameIntervalMs = FpsToIntervalMs(SettingsViewModel.CaptureFrameRateLimit);
+        SettingsViewModel.CaptureFrameRateLimitChanged += fps =>
+            pipelineService.CaptureFrameIntervalMs = FpsToIntervalMs(fps);
 
         YoloDetectionViewModel.TryLoadSavedModel(
             SettingsViewModel.YoloModelPath,

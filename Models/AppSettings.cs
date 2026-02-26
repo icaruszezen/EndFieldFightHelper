@@ -21,4 +21,5 @@ public class AppSettings
     public int GpuDeviceId { get; set; } = 0;
     public float YoloConfidence { get; set; } = 0.3f;
     public float YoloIoU { get; set; } = 0.45f;
+    public int CaptureFrameRateLimit { get; set; } = 60;
 }

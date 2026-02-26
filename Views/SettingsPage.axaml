@@ -136,6 +136,15 @@
                             </StackPanel>
                         </RadioButton>
                     </StackPanel>
+
+                    <StackPanel Spacing="4" Margin="0,14,0,0">
+                        <TextBlock Text="截图帧率上限" FontWeight="SemiBold" />
+                        <TextBlock Text="限制识别管道的截图频率以降低 CPU/GPU 负载"
+                                   Opacity="0.7" FontSize="12" />
+                        <ComboBox ItemsSource="{Binding FrameRateLimitOptions}"
+                                  SelectedItem="{Binding SelectedFrameRateLimit}"
+                                  HorizontalAlignment="Stretch" Margin="0,4,0,0" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
             
