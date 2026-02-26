@@ -33,7 +33,9 @@ public partial class MainWindowViewModel : ViewModelBase
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
         InputTestViewModel = new InputTestViewModel(inputService);
-        DebugViewModel = new DebugViewModel(pipelineService);
+        DebugViewModel = new DebugViewModel(
+            pipelineService, ScreenshotViewModel, YoloDetectionViewModel,
+            InputTestViewModel, SettingsViewModel);
 
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 

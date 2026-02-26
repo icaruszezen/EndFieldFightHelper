@@ -22,6 +22,9 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
     private bool _isDebugEnabled;
 
     [ObservableProperty]
+    private int _selectedPageIndex;
+
+    [ObservableProperty]
     private int _selectedTabIndex;
 
     [ObservableProperty]
@@ -42,9 +45,23 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private ObservableCollection<DetectionResult> _detectionResults = new();
 
-    public DebugViewModel(RecognitionPipelineService pipelineService)
+    public ScreenshotViewModel ScreenshotViewModel { get; }
+    public YoloDetectionViewModel YoloDetectionViewModel { get; }
+    public InputTestViewModel InputTestViewModel { get; }
+    public SettingsViewModel OverlaySettingsViewModel { get; }
+
+    public DebugViewModel(
+        RecognitionPipelineService pipelineService,
+        ScreenshotViewModel screenshotViewModel,
+        YoloDetectionViewModel yoloDetectionViewModel,
+        InputTestViewModel inputTestViewModel,
+        SettingsViewModel overlaySettingsViewModel)
     {
         _pipelineService = pipelineService;
+        ScreenshotViewModel = screenshotViewModel;
+        YoloDetectionViewModel = yoloDetectionViewModel;
+        InputTestViewModel = inputTestViewModel;
+        OverlaySettingsViewModel = overlaySettingsViewModel;
     }
 
     partial void OnIsDebugEnabledChanged(bool value)

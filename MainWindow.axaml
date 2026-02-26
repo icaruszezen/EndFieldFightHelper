@@ -26,42 +26,6 @@
                 </suki:SukiSideMenuItem.PageContent>
             </suki:SukiSideMenuItem>
             
-            <suki:SukiSideMenuItem Header="截图" x:Name="ScreenshotMenuItem">
-                <suki:SukiSideMenuItem.Icon>
-                    <PathIcon Data="M9,3L7.17,5H4A2,2 0 0,0 2,7V19A2,2 0 0,0 4,21H20A2,2 0 0,0 22,19V7A2,2 0 0,0 20,5H16.83L15,3M12,18A5,5 0 0,1 7,13A5,5 0 0,1 12,8A5,5 0 0,1 17,13A5,5 0 0,1 12,18M12,17L13.25,14.25L16,13L13.25,11.75L12,9L10.75,11.75L8,13L10.75,14.25L12,17Z" />
-                </suki:SukiSideMenuItem.Icon>
-                <suki:SukiSideMenuItem.PageContent>
-                    <views:ScreenshotPage DataContext="{Binding ScreenshotViewModel}" />
-                </suki:SukiSideMenuItem.PageContent>
-            </suki:SukiSideMenuItem>
-
-            <suki:SukiSideMenuItem Header="YOLO 识别" x:Name="YoloDetectionMenuItem">
-                <suki:SukiSideMenuItem.Icon>
-                    <PathIcon Data="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6M12,8A4,4 0 0,0 8,12A4,4 0 0,0 12,16A4,4 0 0,0 16,12A4,4 0 0,0 12,8M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10Z" />
-                </suki:SukiSideMenuItem.Icon>
-                <suki:SukiSideMenuItem.PageContent>
-                    <views:YoloDetectionPage DataContext="{Binding YoloDetectionViewModel}" />
-                </suki:SukiSideMenuItem.PageContent>
-            </suki:SukiSideMenuItem>
-
-            <suki:SukiSideMenuItem Header="输入测试" x:Name="InputTestMenuItem">
-                <suki:SukiSideMenuItem.Icon>
-                    <PathIcon Data="M20,5A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7A2,2 0 0,1 4,5H20M4,7V17H20V7H4M6,9H8V11H6V9M10,9H12V11H10V9M14,9H16V11H14V9M18,9H19V11H18V9M5,13H6V15H5V13M7,13H9V15H7V13M10,13H14V15H10V13M15,13H17V15H15V13M18,13H19V15H18V13Z" />
-                </suki:SukiSideMenuItem.Icon>
-                <suki:SukiSideMenuItem.PageContent>
-                    <views:InputTestPage DataContext="{Binding InputTestViewModel}" />
-                </suki:SukiSideMenuItem.PageContent>
-            </suki:SukiSideMenuItem>
-
-            <suki:SukiSideMenuItem Header="叠加显示" x:Name="OverlayMenuItem">
-                <suki:SukiSideMenuItem.Icon>
-                    <PathIcon Data="M3,3H21V5H5V19H3V3M7,7H23V23H7V7Z" />
-                </suki:SukiSideMenuItem.Icon>
-                <suki:SukiSideMenuItem.PageContent>
-                    <views:OverlaySettingsPage DataContext="{Binding SettingsViewModel}" />
-                </suki:SukiSideMenuItem.PageContent>
-            </suki:SukiSideMenuItem>
-            
             <suki:SukiSideMenuItem Header="Debug" x:Name="DebugMenuItem">
                 <suki:SukiSideMenuItem.Icon>
                     <PathIcon Data="M14,12H10V10H14M14,16H10V14H14M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.5,5 12,5C11.5,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8Z" />

@@ -4,163 +4,240 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
              xmlns:models="clr-namespace:EndFieldFightHelper.Models"
+             xmlns:views="clr-namespace:EndFieldFightHelper.Views"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="EndFieldFightHelper.Views.DebugPage"
              x:DataType="vm:DebugViewModel">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="40,30" Spacing="16">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="PillAccentBrush" Color="{DynamicResource SukiPrimaryColor}" />
+        <SolidColorBrush x:Key="PillAccentBgBrush" Color="{DynamicResource SukiPrimaryColor10}" />
+    </UserControl.Resources>
 
-            <TextBlock Text="Debug" FontSize="28" FontWeight="Bold" />
+    <UserControl.Styles>
+        <Style Selector="RadioButton.DebugPill">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="18,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="PillBorder"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1.5"
+                            CornerRadius="16"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.DebugPill:pointerover /template/ Border#PillBorder">
+            <Setter Property="Background" Value="{DynamicResource PillAccentBgBrush}" />
+        </Style>
+        <Style Selector="RadioButton.DebugPill:checked /template/ Border#PillBorder">
+            <Setter Property="Background" Value="{DynamicResource PillAccentBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PillAccentBrush}" />
+        </Style>
+        <Style Selector="RadioButton.DebugPill:checked /template/ Border#PillBorder ContentPresenter">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+    </UserControl.Styles>
 
-            <!-- Debug 总开关 -->
-            <Border Background="{DynamicResource SukiCardBackground}"
-                    CornerRadius="8"
-                    Padding="24,16">
-                <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="Debug 模式" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock Text="开启后实时显示各管道的运行状态、耗时和图像输出（会产生额外性能开销）"
-                                   Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
-                    </StackPanel>
-                    <ToggleSwitch Grid.Column="1"
-                                  IsChecked="{Binding IsDebugEnabled}"
-                                  VerticalAlignment="Center"
-                                  OnContent="开"
-                                  OffContent="关" />
-                </Grid>
-            </Border>
+    <DockPanel>
+        <!-- 顶部标签栏 -->
+        <Border DockPanel.Dock="Top"
+                Background="{DynamicResource SukiCardBackground}"
+                Padding="24,14">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <RadioButton Classes="DebugPill" GroupName="DebugPage"
+                             Content="调试面板" IsChecked="True"
+                             x:Name="TabDebug" />
+                <RadioButton Classes="DebugPill" GroupName="DebugPage"
+                             Content="截图"
+                             x:Name="TabScreenshot" />
+                <RadioButton Classes="DebugPill" GroupName="DebugPage"
+                             Content="YOLO 识别"
+                             x:Name="TabYolo" />
+                <RadioButton Classes="DebugPill" GroupName="DebugPage"
+                             Content="输入测试"
+                             x:Name="TabInput" />
+                <RadioButton Classes="DebugPill" GroupName="DebugPage"
+                             Content="叠加显示"
+                             x:Name="TabOverlay" />
+            </StackPanel>
+        </Border>
 
-            <!-- 主体区域，仅 debug 开启时可见 -->
-            <StackPanel Spacing="16"
-                        IsVisible="{Binding IsDebugEnabled}">
+        <!-- 页面内容区域 -->
+        <Panel>
+            <!-- 调试面板 -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding #TabDebug.IsChecked}">
+                <StackPanel Margin="40,30" Spacing="16">
 
-                <!-- 统计概览 -->
-                <Border Background="{DynamicResource SukiCardBackground}"
-                        CornerRadius="8"
-                        Padding="20">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="管道统计概览"
-                                   FontSize="14" FontWeight="SemiBold"
-                                   Margin="0,0,0,6" />
-                        <TextBlock Text="{Binding CaptureStatsText}"
-                                   FontSize="12"
-                                   FontFamily="Consolas, Courier New, monospace"
-                                   Opacity="0.9" />
-                        <TextBlock Text="{Binding DetectionStatsText}"
-                                   FontSize="12"
-                                   FontFamily="Consolas, Courier New, monospace"
-                                   Opacity="0.9" />
-                        <TextBlock Text="{Binding FrameIdText}"
-                                   FontSize="12"
-                                   FontFamily="Consolas, Courier New, monospace"
-                                   Opacity="0.7" />
-                    </StackPanel>
-                </Border>
+                    <TextBlock Text="Debug" FontSize="28" FontWeight="Bold" />
 
-                <!-- 标签页区域 -->
-                <Border Background="{DynamicResource SukiCardBackground}"
-                        CornerRadius="8"
-                        Padding="20">
-                    <DockPanel>
-                        <!-- 标签按钮 -->
-                        <StackPanel DockPanel.Dock="Top"
-                                    Orientation="Horizontal"
-                                    Spacing="8"
-                                    Margin="0,0,0,16">
-                            <RadioButton GroupName="DebugTab"
-                                         IsChecked="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.IsNull}, ConverterParameter=0, Mode=OneWay}"
-                                         Content="截图管道"
-                                         Classes="Accent"
-                                         Padding="16,8"
-                                         x:Name="CaptureTab" />
-                            <RadioButton GroupName="DebugTab"
-                                         Content="YOLO 识别管道"
-                                         Classes="Accent"
-                                         Padding="16,8"
-                                         x:Name="DetectionTab" />
-                        </StackPanel>
+                    <Border Background="{DynamicResource SukiCardBackground}"
+                            CornerRadius="8"
+                            Padding="24,16">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="Debug 模式" FontSize="18" FontWeight="SemiBold" />
+                                <TextBlock Text="开启后实时显示各管道的运行状态、耗时和图像输出（会产生额外性能开销）"
+                                           Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1"
+                                          IsChecked="{Binding IsDebugEnabled}"
+                                          VerticalAlignment="Center"
+                                          OnContent="开"
+                                          OffContent="关" />
+                        </Grid>
+                    </Border>
 
-                        <!-- 标签页内容 -->
-                        <Panel>
-                            <!-- 截图管道面板 -->
-                            <StackPanel Spacing="12"
-                                        IsVisible="{Binding #CaptureTab.IsChecked}">
-                                <TextBlock Text="最新截图帧" FontSize="14" FontWeight="SemiBold" />
-                                <Border Background="{DynamicResource SukiBackground}"
-                                        CornerRadius="4"
-                                        Height="360"
-                                        ClipToBounds="True">
-                                    <Panel>
-                                        <TextBlock Text="等待截图数据..."
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Opacity="0.3"
-                                                   IsVisible="{Binding CapturePreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
-                                        <Image Source="{Binding CapturePreviewImage}"
-                                               Stretch="Uniform"
-                                               IsVisible="{Binding CapturePreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                    </Panel>
-                                </Border>
+                    <StackPanel Spacing="16"
+                                IsVisible="{Binding IsDebugEnabled}">
+
+                        <Border Background="{DynamicResource SukiCardBackground}"
+                                CornerRadius="8"
+                                Padding="20">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="管道统计概览"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           Margin="0,0,0,6" />
                                 <TextBlock Text="{Binding CaptureStatsText}"
                                            FontSize="12"
                                            FontFamily="Consolas, Courier New, monospace"
-                                           Opacity="0.7" />
-                            </StackPanel>
-
-                            <!-- YOLO 识别管道面板 -->
-                            <StackPanel Spacing="12"
-                                        IsVisible="{Binding #DetectionTab.IsChecked}">
-                                <TextBlock Text="标注结果图像" FontSize="14" FontWeight="SemiBold" />
-                                <Border Background="{DynamicResource SukiBackground}"
-                                        CornerRadius="4"
-                                        Height="360"
-                                        ClipToBounds="True">
-                                    <Panel>
-                                        <TextBlock Text="等待识别数据..."
-                                                   HorizontalAlignment="Center"
-                                                   VerticalAlignment="Center"
-                                                   Opacity="0.3"
-                                                   IsVisible="{Binding DetectionPreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
-                                        <Image Source="{Binding DetectionPreviewImage}"
-                                               Stretch="Uniform"
-                                               IsVisible="{Binding DetectionPreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                                    </Panel>
-                                </Border>
-
-                                <TextBlock Text="识别结果" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
-                                <Border Background="{DynamicResource SukiBackground}"
-                                        CornerRadius="4"
-                                        Padding="8"
-                                        MaxHeight="200">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                        <DataGrid ItemsSource="{Binding DetectionResults}"
-                                                  IsReadOnly="True"
-                                                  CanUserResizeColumns="True"
-                                                  CanUserSortColumns="False"
-                                                  HeadersVisibility="Column"
-                                                  GridLinesVisibility="Horizontal"
-                                                  AutoGenerateColumns="False"
-                                                  FontSize="12">
-                                            <DataGrid.Columns>
-                                                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
-                                                <DataGridTextColumn Header="置信度" Binding="{Binding ConfidenceText}" Width="80" />
-                                                <DataGridTextColumn Header="位置" Binding="{Binding BoundsText}" Width="140" />
-                                            </DataGrid.Columns>
-                                        </DataGrid>
-                                    </ScrollViewer>
-                                </Border>
-
+                                           Opacity="0.9" />
                                 <TextBlock Text="{Binding DetectionStatsText}"
+                                           FontSize="12"
+                                           FontFamily="Consolas, Courier New, monospace"
+                                           Opacity="0.9" />
+                                <TextBlock Text="{Binding FrameIdText}"
                                            FontSize="12"
                                            FontFamily="Consolas, Courier New, monospace"
                                            Opacity="0.7" />
                             </StackPanel>
-                        </Panel>
-                    </DockPanel>
-                </Border>
-            </StackPanel>
+                        </Border>
 
-        </StackPanel>
-    </ScrollViewer>
+                        <Border Background="{DynamicResource SukiCardBackground}"
+                                CornerRadius="8"
+                                Padding="20">
+                            <DockPanel>
+                                <StackPanel DockPanel.Dock="Top"
+                                            Orientation="Horizontal"
+                                            Spacing="8"
+                                            Margin="0,0,0,16">
+                                    <RadioButton GroupName="DebugTab"
+                                                 IsChecked="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.IsNull}, ConverterParameter=0, Mode=OneWay}"
+                                                 Content="截图管道"
+                                                 Classes="Accent"
+                                                 Padding="16,8"
+                                                 x:Name="CaptureTab" />
+                                    <RadioButton GroupName="DebugTab"
+                                                 Content="YOLO 识别管道"
+                                                 Classes="Accent"
+                                                 Padding="16,8"
+                                                 x:Name="DetectionTab" />
+                                </StackPanel>
+
+                                <Panel>
+                                    <StackPanel Spacing="12"
+                                                IsVisible="{Binding #CaptureTab.IsChecked}">
+                                        <TextBlock Text="最新截图帧" FontSize="14" FontWeight="SemiBold" />
+                                        <Border Background="{DynamicResource SukiBackground}"
+                                                CornerRadius="4"
+                                                Height="360"
+                                                ClipToBounds="True">
+                                            <Panel>
+                                                <TextBlock Text="等待截图数据..."
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Opacity="0.3"
+                                                           IsVisible="{Binding CapturePreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                <Image Source="{Binding CapturePreviewImage}"
+                                                       Stretch="Uniform"
+                                                       IsVisible="{Binding CapturePreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </Panel>
+                                        </Border>
+                                        <TextBlock Text="{Binding CaptureStatsText}"
+                                                   FontSize="12"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   Opacity="0.7" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="12"
+                                                IsVisible="{Binding #DetectionTab.IsChecked}">
+                                        <TextBlock Text="标注结果图像" FontSize="14" FontWeight="SemiBold" />
+                                        <Border Background="{DynamicResource SukiBackground}"
+                                                CornerRadius="4"
+                                                Height="360"
+                                                ClipToBounds="True">
+                                            <Panel>
+                                                <TextBlock Text="等待识别数据..."
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Opacity="0.3"
+                                                           IsVisible="{Binding DetectionPreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                <Image Source="{Binding DetectionPreviewImage}"
+                                                       Stretch="Uniform"
+                                                       IsVisible="{Binding DetectionPreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </Panel>
+                                        </Border>
+
+                                        <TextBlock Text="识别结果" FontSize="14" FontWeight="SemiBold" Margin="0,4,0,0" />
+                                        <Border Background="{DynamicResource SukiBackground}"
+                                                CornerRadius="4"
+                                                Padding="8"
+                                                MaxHeight="200">
+                                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                <DataGrid ItemsSource="{Binding DetectionResults}"
+                                                          IsReadOnly="True"
+                                                          CanUserResizeColumns="True"
+                                                          CanUserSortColumns="False"
+                                                          HeadersVisibility="Column"
+                                                          GridLinesVisibility="Horizontal"
+                                                          AutoGenerateColumns="False"
+                                                          FontSize="12">
+                                                    <DataGrid.Columns>
+                                                        <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
+                                                        <DataGridTextColumn Header="置信度" Binding="{Binding ConfidenceText}" Width="80" />
+                                                        <DataGridTextColumn Header="位置" Binding="{Binding BoundsText}" Width="140" />
+                                                    </DataGrid.Columns>
+                                                </DataGrid>
+                                            </ScrollViewer>
+                                        </Border>
+
+                                        <TextBlock Text="{Binding DetectionStatsText}"
+                                                   FontSize="12"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   Opacity="0.7" />
+                                    </StackPanel>
+                                </Panel>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- 截图 -->
+            <views:ScreenshotPage DataContext="{Binding ScreenshotViewModel}"
+                                  IsVisible="{Binding #TabScreenshot.IsChecked}" />
+
+            <!-- YOLO 识别 -->
+            <views:YoloDetectionPage DataContext="{Binding YoloDetectionViewModel}"
+                                     IsVisible="{Binding #TabYolo.IsChecked}" />
+
+            <!-- 输入测试 -->
+            <views:InputTestPage DataContext="{Binding InputTestViewModel}"
+                                 IsVisible="{Binding #TabInput.IsChecked}" />
+
+            <!-- 叠加显示 -->
+            <views:OverlaySettingsPage DataContext="{Binding OverlaySettingsViewModel}"
+                                       IsVisible="{Binding #TabOverlay.IsChecked}" />
+        </Panel>
+    </DockPanel>
 </UserControl>
