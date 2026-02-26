@@ -101,15 +101,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         "可以截取被遮挡的窗口内容，同时支持 DirectX/硬件加速渲染。" +
         "通过禁用黄色边框实现无感截图（需要 Windows 11），最低支持 Windows 10 1903。";
 
-    public SettingsViewModel(ISukiToastManager toastManager)
+    public SettingsViewModel(ISukiToastManager toastManager, OverlayService overlayService)
     {
         _toastManager = toastManager;
+        _overlayService = overlayService;
         _settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EndFieldFightHelper",
             "settings.json");
-
-        _overlayService = new OverlayService();
 
         RefreshInferenceDevices();
         InitializeColorThemes();
@@ -423,6 +422,5 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     {
         _saveCts?.Cancel();
         _saveCts?.Dispose();
-        _overlayService.Dispose();
     }
 }

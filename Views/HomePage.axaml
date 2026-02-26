@@ -3,8 +3,244 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="EndFieldFightHelper.Views.HomePage"
              x:DataType="vm:HomeViewModel">
-    
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="40,30" Spacing="16">
+
+            <TextBlock Text="战斗辅助" FontSize="28" FontWeight="Bold" />
+
+            <!-- 总开关卡片 -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24,16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="战斗辅助总开关" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="开启后将对游戏进行截图与识别，子功能开关才会生效"
+                                   Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="1"
+                                  IsChecked="{Binding IsBattleAssistEnabled}"
+                                  VerticalAlignment="Center"
+                                  OnContent="运行中"
+                                  OffContent="已停止" />
+                </Grid>
+            </Border>
+
+            <!-- 中间两列区域 -->
+            <Grid ColumnDefinitions="320,16,*">
+
+                <!-- 左列：窗口预览卡片 -->
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SukiCardBackground}"
+                        CornerRadius="8"
+                        Padding="20">
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Endfield 窗口绑定" FontSize="16" FontWeight="SemiBold" />
+                            <TextBlock Text="自动绑定 Endfield 游戏进程窗口"
+                                       Opacity="0.6" FontSize="11" />
+                        </StackPanel>
+
+                        <!-- 窗口绑定状态 -->
+                        <Border Background="{DynamicResource SukiBackground}"
+                                CornerRadius="4"
+                                Padding="10,8">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Panel Grid.Column="0"
+                                           Width="8" Height="8"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0">
+                                        <Ellipse Width="8" Height="8"
+                                                 Fill="#22C55E"
+                                                 IsVisible="{Binding IsWindowBound}" />
+                                        <Ellipse Width="8" Height="8"
+                                                 Fill="#EF4444"
+                                                 IsVisible="{Binding !IsWindowBound}" />
+                                    </Panel>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding WindowStatusText}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Center" />
+                                    <Button Grid.Column="2"
+                                            Content="刷新"
+                                            Command="{Binding RefreshWindowCommand}"
+                                            Padding="8,4"
+                                            FontSize="11" />
+                                </Grid>
+                                <TextBlock Text="请启动 Endfield 后点击刷新按钮"
+                                           FontSize="11"
+                                           Foreground="#EF4444"
+                                           IsVisible="{Binding !IsWindowBound}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 截图预览区域 -->
+                        <Border Background="{DynamicResource SukiBackground}"
+                                CornerRadius="4"
+                                Height="180"
+                                ClipToBounds="True">
+                            <Panel>
+                                <TextBlock Text="截图预览"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Opacity="0.3"
+                                           IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+                                <Image Source="{Binding PreviewImage}"
+                                       Stretch="Uniform"
+                                       IsVisible="{Binding PreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            </Panel>
+                        </Border>
+
+                        <!-- 预览控制按钮 -->
+                        <Button Command="{Binding TogglePreviewCommand}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Padding="0,8"
+                                IsEnabled="{Binding IsWindowBound}">
+                            <Button.Content>
+                                <Panel>
+                                    <TextBlock Text="开始预览"
+                                               IsVisible="{Binding !IsPreviewRunning}" />
+                                    <TextBlock Text="停止预览"
+                                               IsVisible="{Binding IsPreviewRunning}" />
+                                </Panel>
+                            </Button.Content>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- 右列：功能开关卡片 -->
+                <Border Grid.Column="2"
+                        Background="{DynamicResource SukiCardBackground}"
+                        CornerRadius="8"
+                        Padding="24,20">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="功能开关" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="各辅助功能的独立开关，需先开启总开关"
+                                   Opacity="0.6" FontSize="12" Margin="0,-6,0,0" />
+
+                        <StackPanel Spacing="6"
+                                    IsEnabled="{Binding IsBattleAssistEnabled}"
+                                    Margin="0,4,0,0">
+
+                            <!-- 自动闪避 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动闪避" FontWeight="SemiBold" />
+                                    <TextBlock Text="检测到敌方攻击时自动执行闪避操作"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoDodgeEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
+                            <!-- 自动技能 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动技能" FontWeight="SemiBold" />
+                                    <TextBlock Text="技能就绪时自动释放角色技能"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoSkillEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
+                            <!-- 自动攻击 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动攻击" FontWeight="SemiBold" />
+                                    <TextBlock Text="自动执行普通攻击连段"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoAttackEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
+                            <!-- 自动终结技 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动终结技" FontWeight="SemiBold" />
+                                    <TextBlock Text="终结技可用时自动释放"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoUltimateEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
+                            <!-- 叠加层 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="战斗叠加层" FontWeight="SemiBold" />
+                                    <TextBlock Text="在游戏窗口左侧显示战斗信息叠加层"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsBattleOverlayEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 日志卡片 -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="20">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                        <TextBlock Grid.Column="0"
+                                   Text="运行日志"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1"
+                                Content="清空"
+                                Command="{Binding ClearLogCommand}"
+                                Padding="10,4"
+                                FontSize="11" />
+                    </Grid>
+
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="4"
+                            Padding="8"
+                            Height="180">
+                        <ScrollViewer x:Name="LogScrollViewer"
+                                      VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding LogMessages}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   FontSize="12"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   Opacity="0.85"
+                                                   Padding="2,1" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>

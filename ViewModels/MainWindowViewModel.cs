@@ -22,9 +22,10 @@ public partial class MainWindowViewModel : ViewModelBase
         var screenshotService = new ScreenshotService();
         var detectionService = new YoloDetectionService();
         var inputService = new InputService();
+        var overlayService = new OverlayService();
 
-        HomeViewModel = new HomeViewModel();
-        SettingsViewModel = new SettingsViewModel(toastManager);
+        HomeViewModel = new HomeViewModel(screenshotService, overlayService);
+        SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
@@ -36,9 +37,11 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             ScreenshotViewModel.SetCaptureMethod(method);
             YoloDetectionViewModel.SetCaptureMethod(method);
+            HomeViewModel.SetCaptureMethod(method);
         };
         ScreenshotViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
         YoloDetectionViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
+        HomeViewModel.SetCaptureMethod(SettingsViewModel.SelectedMethod);
 
         YoloDetectionViewModel.TryLoadSavedModel(
             SettingsViewModel.YoloModelPath,
