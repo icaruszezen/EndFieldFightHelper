@@ -1,0 +1,205 @@
+---
+description: Recognition pipeline architecture, shared state conventions, and threading rules for EndFieldFightHelper.
+globs:
+  - Services/RecognitionPipelineService.cs
+  - Models/SharedCaptureFrame.cs
+  - Models/SharedDetectionState.cs
+  - Models/DetectionResult.cs
+  - ViewModels/HomeViewModel.cs
+  - ViewModels/DebugViewModel.cs
+  - ViewModels/MainWindowViewModel.cs
+alwaysApply: false
+---
+
+# Recognition Pipeline Architecture
+
+## Overview
+
+The recognition pipeline is a two-stage producer-consumer system that runs when the
+battle-assist toggle (`IsBattleAssistEnabled`) is turned ON. It consists of:
+
+1. **Capture Thread** — continuously screenshots the game window.
+2. **Detection Thread** — reads the latest screenshot, runs YOLO inference, publishes results.
+
+Both threads communicate through **shared state objects** that any number of consumer
+threads (auto-dodge, auto-skill, debug UI, etc.) can read without coordination with
+each other.
+
+```
+┌─────────────┐   Update(bitmap)   ┌───────────────────┐   CloneLatest()   ┌──────────────────┐
+│CaptureLoop  │ ─────────────────► │SharedCaptureFrame │ ────────────────► │DetectionLoop     │
+│(Task.Run)   │                    │  FrameId + Bitmap │                   │(Task.Run)        │
+└─────────────┘                    └───────────────────┘                   └────────┬─────────┘
+                                                                                   │
+                                          Update(frameId, results)                 │
+                                   ┌───────────────────┐◄──────────────────────────┘
+                                   │SharedDetectionState│
+                                   │  FrameId + Results │
+                                   └───────────────────┘
+                                          │ GetLatest()
+                                          ▼
+                                   ┌───────────────┐
+                                   │Consumer threads│
+                                   │(dodge, skill…) │
+                                   └───────────────┘
+```
+
+## Key Files
+
+| File | Role |
+|------|------|
+| `Services/RecognitionPipelineService.cs` | Owns both loops, exposes shared state and stats |
+| `Models/SharedCaptureFrame.cs` | Thread-safe latest-frame holder (Bitmap + FrameId) |
+| `Models/SharedDetectionState.cs` | Thread-safe latest-results holder (DetectionResult list + FrameId) |
+| `Models/DetectionResult.cs` | Immutable detection result (Name, Confidence, Bounds) |
+
+## Shared State Contract
+
+### SharedCaptureFrame
+
+- **Single writer**: `CaptureLoop` calls `Update(Bitmap)`.
+- **Multiple readers**: call `CloneLatest(long lastSeenId)`.
+  - Returns `null` if no new frame since `lastSeenId`.
+  - Returns `(frameId, clonedBitmap)` — **caller owns the clone and must dispose it**.
+- **FrameId** (`long`): monotonically incremented via `Interlocked.Increment`.
+  Readable without locking via `Volatile.Read` for cheap "has new frame?" checks.
+- Internal `lock` protects the bitmap reference during update and clone.
+
+### SharedDetectionState
+
+- **Single writer**: `DetectionLoop` calls `Update(long frameId, IReadOnlyList<DetectionResult> results)`.
+- **Multiple readers**: call `GetLatest(long lastSeenId)`.
+  - Returns `null` if no new results since `lastSeenId`.
+  - Returns `(frameId, results)` — the list is immutable, safe to hold without copying.
+- **FrameId** is inherited from the capture frame that was analyzed. This lets consumers
+  correlate detection results with capture frames.
+
+### FrameId Convention
+
+- FrameId is a `long`, starts at 0, incremented by 1 per captured frame.
+- Detection results carry the **same FrameId** as the frame they were produced from.
+- Consumers track the last FrameId they processed. To check for new data:
+  ```csharp
+  // Fast check without locking:
+  if (sharedState.FrameId == _lastSeenId) { /* nothing new */ }
+
+  // Full read with data:
+  var latest = sharedState.GetLatest(_lastSeenId);
+  if (latest != null) { _lastSeenId = latest.Value.frameId; /* process */ }
+  ```
+
+## RecognitionPipelineService API
+
+### Lifecycle
+
+```csharp
+// Start both loops (requires YOLO model to be loaded)
+void Start(IntPtr hWnd, CaptureMethod method)
+
+// Gracefully cancel both loops, wait up to 3s, clear state
+void Stop()
+
+// Clean up (calls Stop + disposes SharedCapture)
+void Dispose()
+```
+
+### Runtime Properties (readable from any thread)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `IsRunning` | `bool` | Whether the pipeline is active |
+| `SharedCapture` | `SharedCaptureFrame` | Latest captured frame |
+| `SharedDetection` | `SharedDetectionState` | Latest detection results |
+| `LastCaptureDurationMs` | `long` | Duration of the last capture call |
+| `LastDetectionDurationMs` | `long` | Duration of the last detection call |
+| `CaptureFrameCount` | `long` | Total frames captured since Start |
+| `DetectionFrameCount` | `long` | Total frames detected since Start |
+| `LastDetectionResultCount` | `long` | Object count in last detection |
+
+### Configuration Properties (set from UI thread, read by loops)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `CaptureFrameIntervalMs` | `int` | Min ms between captures (0 = unlimited). Set by Settings via FPS limit. |
+| `IsDebugOutputEnabled` | `bool` | When true, detection loop generates plotted images every 5th frame |
+| `LastPlottedImageBytes` | `byte[]?` | BMP bytes of the last plotted image (for debug display) |
+
+### Events
+
+```csharp
+event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel.AddLog
+```
+
+## CaptureLoop Behavior
+
+1. Calls `_screenshotService.CaptureWindow(hWnd, method)`.
+2. On success: updates `SharedCapture`, increments frame counter, records duration.
+3. Respects `CaptureFrameIntervalMs`: if the capture was faster than the interval,
+   the loop sleeps for the remaining time (frame-rate cap).
+4. On failure: waits 10ms and retries.
+5. On exception: logs, waits 100ms, retries.
+6. On cancellation: exits cleanly.
+
+## DetectionLoop Behavior
+
+1. Calls `SharedCapture.CloneLatest(lastFrameId)` to get the newest frame.
+2. If no new frame: waits 5ms and retries (natural frame skipping).
+3. Runs `_detectionService.DetectAsync(bitmap, skipPlot)`.
+   - `skipPlot` is `true` unless debug output is enabled AND this is every 5th frame.
+4. Updates `SharedDetection` with the results and the **same FrameId** from the capture.
+5. If plotted bytes were generated, stores them in `LastPlottedImageBytes`.
+6. On exception: logs, waits 100ms, retries.
+
+## Threading Rules
+
+1. **Never block the UI thread** on pipeline operations. All pipeline methods are
+   fire-and-forget or use `Volatile`/`Interlocked` for lock-free reads.
+2. **Shared state objects use `lock`** internally — callers do not need external synchronization.
+3. **Bitmap ownership**: `CloneLatest` returns a clone — the caller MUST dispose it.
+   The original inside `SharedCaptureFrame` is owned by the capture loop.
+4. **DetectionResult is immutable** — safe to pass between threads without copying.
+5. **UI updates** from timer callbacks must use `Dispatcher.UIThread.Post(...)`.
+6. **Volatile fields** (`_captureFrameIntervalMs`, `_isDebugOutputEnabled`, stats counters)
+   are used for cross-thread communication of simple values without locks.
+
+## Adding a New Pipeline Stage
+
+To add a new processing stage (e.g., a post-processing thread):
+
+1. **Create a new SharedState class** following the pattern of `SharedDetectionState`:
+   - `lock` + `Volatile.Read` for FrameId
+   - `Update(...)` for the writer, `GetLatest(long lastSeenId)` for readers
+   - Carry forward the `FrameId` from the upstream stage
+
+2. **Add the loop method** in `RecognitionPipelineService`:
+   - Follow the same `while (!token.IsCancellationRequested)` pattern
+   - Read from the upstream shared state via `GetLatest` or `CloneLatest`
+   - Write to the new shared state via `Update`
+   - Handle `OperationCanceledException` and general exceptions
+
+3. **Register the Task** in `Start()`:
+   ```csharp
+   _newStageTask = Task.Run(() => NewStageLoop(token), token);
+   ```
+
+4. **Join it in `Stop()`** — add to the `Task.WhenAll(...)` call.
+
+5. **Expose stats** — add `Volatile` counter fields + public read-only properties.
+
+6. **Debug support** — add a new tab in `DebugViewModel` / `DebugPage` to visualize
+   the new stage's output, gated behind `IsDebugOutputEnabled`.
+
+## Integration Points
+
+- **HomeViewModel**: Calls `Start` / `Stop` based on `IsBattleAssistEnabled` toggle.
+- **MainWindowViewModel**: Wires settings changes (FPS limit, capture method) to the service.
+- **DebugViewModel**: Polls stats and images via a 200ms timer when debug mode is ON.
+- **Consumer threads** (future): Read `SharedDetection.GetLatest()` to drive game actions.
+
+## Settings That Affect the Pipeline
+
+| Setting | Location | Effect |
+|---------|----------|--------|
+| Capture Method | `SettingsViewModel.SelectedMethod` | Propagated to `HomeViewModel._captureMethod`, used in `Start()` |
+| FPS Limit | `SettingsViewModel.SelectedFrameRateLimit` | Converted to ms interval, applied to `CaptureFrameIntervalMs` at runtime |
+| YOLO Model/Device/Confidence/IoU | `SettingsViewModel` | Hot-reloaded via `YoloSettingsChanged` event |

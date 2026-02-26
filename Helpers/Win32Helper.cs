@@ -199,11 +199,11 @@ public static class Win32Helper
         var styles = GetWindowLongPtr(hWnd, GWL_EXSTYLE).ToInt64();
         if (enabled)
         {
-            styles |= exStyle;
+            styles |= (uint)exStyle;
         }
         else
         {
-            styles &= ~exStyle;
+            styles &= ~(long)(uint)exStyle;
         }
 
         SetWindowLongPtr(hWnd, GWL_EXSTYLE, new IntPtr(styles));

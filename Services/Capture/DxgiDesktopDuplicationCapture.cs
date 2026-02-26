@@ -182,7 +182,7 @@ public static class DxgiDesktopDuplicationCapture
                 null,
                 DriverType.Hardware,
                 DeviceCreationFlags.BgraSupport,
-                null,
+                null!,
                 out _cachedDevice,
                 out _cachedContext);
 

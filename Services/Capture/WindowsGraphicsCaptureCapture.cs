@@ -51,7 +51,7 @@ public static class WindowsGraphicsCaptureCapture
         try
         {
             Guid accessIid = IDirect3DDxgiInterfaceAccessIid;
-            int hr = Marshal.QueryInterface(surfacePtr, ref accessIid, out IntPtr accessPtr);
+            int hr = Marshal.QueryInterface(surfacePtr, in accessIid, out IntPtr accessPtr);
             Marshal.ThrowExceptionForHR(hr);
             try
             {
@@ -245,7 +245,7 @@ public static class WindowsGraphicsCaptureCapture
                 null,
                 DriverType.Hardware,
                 DeviceCreationFlags.BgraSupport,
-                null,
+                null!,
                 out _cachedDevice,
                 out _cachedContext);
 
