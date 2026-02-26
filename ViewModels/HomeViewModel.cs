@@ -18,6 +18,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly IScreenshotService _screenshotService;
     private readonly OverlayService _overlayService;
     private readonly RecognitionPipelineService _pipelineService;
+    private readonly AutoDodgeService _autoDodgeService;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
 
@@ -59,12 +60,14 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public RecognitionPipelineService PipelineService => _pipelineService;
 
     public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService,
-        RecognitionPipelineService pipelineService)
+        RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
         _pipelineService = pipelineService;
+        _autoDodgeService = autoDodgeService;
         _pipelineService.Log += msg => AddLog(msg);
+        _autoDodgeService.Log += msg => AddLog(msg);
         FindEndfieldWindow();
     }
 
@@ -183,6 +186,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             if (EndfieldWindow != null)
             {
                 _pipelineService.Start(EndfieldWindow.Handle, _captureMethod);
+                if (IsAutoDodgeEnabled)
+                    _autoDodgeService.Start(EndfieldWindow.Handle);
             }
             else
             {
@@ -192,6 +197,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
         else
         {
+            _autoDodgeService.Stop();
             _pipelineService.Stop();
             AddLog("战斗辅助已关闭");
             if (IsPreviewRunning) StopPreview();
@@ -208,7 +214,17 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     partial void OnIsAutoDodgeEnabledChanged(bool value)
     {
-        AddLog(value ? "自动闪避已开启" : "自动闪避已关闭");
+        if (value)
+        {
+            AddLog("自动闪避已开启");
+            if (EndfieldWindow != null && _pipelineService.IsRunning)
+                _autoDodgeService.Start(EndfieldWindow.Handle);
+        }
+        else
+        {
+            _autoDodgeService.Stop();
+            AddLog("自动闪避已关闭");
+        }
     }
 
     partial void OnIsAutoSkillEnabledChanged(bool value)
@@ -279,6 +295,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _autoDodgeService.Dispose();
         _pipelineService.Stop();
         _previewTimer?.Dispose();
         _previewTimer = null;

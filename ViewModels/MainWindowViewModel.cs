@@ -26,8 +26,9 @@ public partial class MainWindowViewModel : ViewModelBase
         var overlayService = new OverlayService();
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
+        var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
 
-        HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService);
+        HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService, autoDodgeService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();

@@ -131,12 +131,14 @@
                                             Spacing="8"
                                             Margin="0,0,0,16">
                                     <RadioButton GroupName="DebugTab"
-                                                 IsChecked="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.IsNull}, ConverterParameter=0, Mode=OneWay}"
+                                                 IsChecked="True"
+                                                 IsCheckedChanged="OnInnerTabChecked"
                                                  Content="截图管道"
                                                  Classes="Accent"
                                                  Padding="16,8"
                                                  x:Name="CaptureTab" />
                                     <RadioButton GroupName="DebugTab"
+                                                 IsCheckedChanged="OnInnerTabChecked"
                                                  Content="YOLO 识别管道"
                                                  Classes="Accent"
                                                  Padding="16,8"

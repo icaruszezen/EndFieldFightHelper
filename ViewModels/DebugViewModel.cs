@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
@@ -15,8 +16,9 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
     private readonly RecognitionPipelineService _pipelineService;
     private Timer? _refreshTimer;
     private long _lastCaptureFrameId;
+    private long _lastDetCaptureFrameId;
     private long _lastDetectionFrameId;
-    private byte[]? _lastPlotBytesRef;
+    private DetectionResult[]? _cachedDetectionResults;
 
     [ObservableProperty]
     private bool _isDebugEnabled;
@@ -70,8 +72,9 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         {
             _pipelineService.IsDebugOutputEnabled = true;
             _lastCaptureFrameId = 0;
+            _lastDetCaptureFrameId = 0;
             _lastDetectionFrameId = 0;
-            _lastPlotBytesRef = null;
+            _cachedDetectionResults = null;
             _refreshTimer = new Timer(RefreshDebugData, null, 0, 200);
         }
         else
@@ -153,19 +156,33 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         DetectionResult[]? newResults = null;
         if (tabIndex == 1)
         {
-            var plotBytes = ps.LastPlottedImageBytes;
-            if (plotBytes != null && !ReferenceEquals(plotBytes, _lastPlotBytesRef))
-            {
-                _lastPlotBytesRef = plotBytes;
-                using var ms = new MemoryStream(plotBytes);
-                newDetBitmap = new Avalonia.Media.Imaging.Bitmap(ms);
-            }
-
             var det = ps.SharedDetection.GetLatest(_lastDetectionFrameId);
             if (det != null)
             {
                 _lastDetectionFrameId = det.Value.frameId;
-                newResults = [.. det.Value.results];
+                _cachedDetectionResults = [.. det.Value.results];
+                newResults = _cachedDetectionResults;
+            }
+
+            var frame = ps.SharedCapture.CloneLatest(_lastDetCaptureFrameId);
+            if (frame != null)
+            {
+                _lastDetCaptureFrameId = frame.Value.frameId;
+                try
+                {
+                    var bitmap = frame.Value.image;
+                    if (_cachedDetectionResults is { Length: > 0 })
+                        DrawDetectionBoxes(bitmap, _cachedDetectionResults);
+
+                    using var stream = new MemoryStream();
+                    bitmap.Save(stream, ImageFormat.Bmp);
+                    stream.Position = 0;
+                    newDetBitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                }
+                finally
+                {
+                    frame.Value.image.Dispose();
+                }
             }
         }
 
@@ -196,6 +213,28 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                     DetectionResults.Add(r);
             }
         });
+    }
+
+    private static void DrawDetectionBoxes(Bitmap bitmap, DetectionResult[] results)
+    {
+        using var g = Graphics.FromImage(bitmap);
+        var fontSize = Math.Max(12f, bitmap.Height / 60f);
+        var penWidth = Math.Max(2f, bitmap.Height / 400f);
+        using var pen = new Pen(Color.FromArgb(0, 255, 128), penWidth);
+        using var font = new Font("Consolas", fontSize, FontStyle.Bold);
+        using var textBrush = new SolidBrush(Color.FromArgb(0, 255, 128));
+        using var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
+
+        foreach (var r in results)
+        {
+            g.DrawRectangle(pen, r.X, r.Y, r.Width, r.Height);
+
+            var label = $"{r.Name} {r.Confidence:P0}";
+            var size = g.MeasureString(label, font);
+            var labelY = Math.Max(r.Y - size.Height - 2, 0);
+            g.FillRectangle(bgBrush, r.X, labelY, size.Width + 4, size.Height + 2);
+            g.DrawString(label, font, textBrush, r.X + 2, labelY);
+        }
     }
 
     public void Dispose()
