@@ -173,27 +173,36 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
     }
 
-    partial void OnIsBattleAssistEnabledChanged(bool value)
+    [RelayCommand]
+    private void ToggleBattleAssist()
     {
-        if (value)
+        if (!IsBattleAssistEnabled)
         {
-            AddLog("战斗辅助已开启");
             if (!IsWindowBound)
-            {
                 FindEndfieldWindow();
+
+            if (EndfieldWindow == null)
+            {
+                AddLog("启动失败：未绑定 Endfield 窗口");
+                return;
             }
 
-            if (EndfieldWindow != null)
+            _pipelineService.Start(EndfieldWindow.Handle, _captureMethod);
+
+            if (!_pipelineService.IsRunning)
             {
-                _pipelineService.Start(EndfieldWindow.Handle, _captureMethod);
-                if (IsAutoDodgeEnabled)
-                    _autoDodgeService.Start(EndfieldWindow.Handle);
+                AddLog("启动失败：识别管道未能启动");
+                return;
             }
-            else
-            {
-                AddLog("无法启动识别管道：未绑定 Endfield 窗口");
-                IsBattleAssistEnabled = false;
-            }
+
+            IsBattleAssistEnabled = true;
+            AddLog("战斗辅助已开启");
+
+            if (IsAutoDodgeEnabled)
+                _autoDodgeService.Start(EndfieldWindow.Handle);
+
+            if (IsBattleOverlayEnabled)
+                ApplyBattleOverlay();
         }
         else
         {
@@ -203,12 +212,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             if (IsPreviewRunning) StopPreview();
             if (IsBattleOverlayEnabled)
             {
-                IsBattleOverlayEnabled = false;
+                _overlayService.ApplySettings(false, true, 0, 0, 300, 200, 0.85);
             }
-            IsAutoDodgeEnabled = false;
-            IsAutoSkillEnabled = false;
-            IsAutoAttackEnabled = false;
-            IsAutoUltimateEnabled = false;
+            IsBattleAssistEnabled = false;
         }
     }
 

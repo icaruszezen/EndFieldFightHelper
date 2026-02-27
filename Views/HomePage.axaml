@@ -22,11 +22,34 @@
                         <TextBlock Text="开启后将对游戏进行截图与识别，子功能开关才会生效"
                                    Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
                     </StackPanel>
-                    <ToggleSwitch Grid.Column="1"
-                                  IsChecked="{Binding IsBattleAssistEnabled}"
-                                  VerticalAlignment="Center"
-                                  OnContent="运行中"
-                                  OffContent="已停止" />
+                    <Panel Grid.Column="1">
+                        <Button Command="{Binding ToggleBattleAssistCommand}"
+                                Background="#3322C55E"
+                                IsVisible="{Binding !IsBattleAssistEnabled}"
+                                VerticalAlignment="Center"
+                                Padding="16,8"
+                                FontSize="14">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="M8,5.14V19.14L19,12.14L8,5.14Z"
+                                          Width="14" Height="14"
+                                          Foreground="#22C55E" />
+                                <TextBlock Text="运行" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{Binding ToggleBattleAssistCommand}"
+                                Background="#33EF4444"
+                                IsVisible="{Binding IsBattleAssistEnabled}"
+                                VerticalAlignment="Center"
+                                Padding="16,8"
+                                FontSize="14">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <PathIcon Data="M18,18H6V6H18V18Z"
+                                          Width="14" Height="14"
+                                          Foreground="#EF4444" />
+                                <TextBlock Text="停止" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Panel>
                 </Grid>
             </Border>
 
