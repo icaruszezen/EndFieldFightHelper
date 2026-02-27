@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Specialized;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -14,7 +15,6 @@ public partial class OverlayWindow : Window
 
     private DragMode _dragMode;
     private Point _dragStart;
-    private PixelPoint _windowStartPos;
     private PixelPoint _moveMouseOffset;
     private double _startWidth;
     private double _startHeight;
@@ -24,6 +24,8 @@ public partial class OverlayWindow : Window
     private const double OverlayMinHeight = 60;
 
     private Win32Helper.SUBCLASSPROC? _subclassProc;
+    private GCHandle _subclassProcHandle;
+    private OverlayViewModel? _previousVm;
 
     public OverlayWindow()
     {
@@ -36,6 +38,13 @@ public partial class OverlayWindow : Window
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        if (_previousVm != null)
+        {
+            _previousVm.LogMessages.CollectionChanged -= OnLogMessagesChanged;
+        }
+
+        _previousVm = Vm;
+
         if (Vm != null)
         {
             Vm.LogMessages.CollectionChanged += OnLogMessagesChanged;
@@ -65,6 +74,7 @@ public partial class OverlayWindow : Window
         if (handle == IntPtr.Zero) return;
 
         _subclassProc = HitTestSubclassProc;
+        _subclassProcHandle = GCHandle.Alloc(_subclassProc);
         Win32Helper.SetWindowSubclass(handle, _subclassProc, UIntPtr.Zero, IntPtr.Zero);
     }
 
@@ -73,10 +83,15 @@ public partial class OverlayWindow : Window
         if (_subclassProc == null) return;
 
         var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        if (handle == IntPtr.Zero) return;
+        if (handle != IntPtr.Zero)
+        {
+            Win32Helper.RemoveWindowSubclass(handle, _subclassProc, UIntPtr.Zero);
+        }
 
-        Win32Helper.RemoveWindowSubclass(handle, _subclassProc, UIntPtr.Zero);
         _subclassProc = null;
+
+        if (_subclassProcHandle.IsAllocated)
+            _subclassProcHandle.Free();
     }
 
     private IntPtr HitTestSubclassProc(
@@ -133,16 +148,17 @@ public partial class OverlayWindow : Window
         var w = Bounds.Width;
         var h = Bounds.Height;
 
-        Canvas.SetLeft(GripRight, w - 6);
+        Canvas.SetLeft(GripRight, w - EdgeThreshold);
         Canvas.SetTop(GripRight, 0);
         GripRight.Height = h;
 
         Canvas.SetLeft(GripBottom, 0);
-        Canvas.SetTop(GripBottom, h - 6);
+        Canvas.SetTop(GripBottom, h - EdgeThreshold);
         GripBottom.Width = w;
 
-        Canvas.SetLeft(GripBottomRight, w - 10);
-        Canvas.SetTop(GripBottomRight, h - 10);
+        var cornerSize = EdgeThreshold + 4;
+        Canvas.SetLeft(GripBottomRight, w - cornerSize);
+        Canvas.SetTop(GripBottomRight, h - cornerSize);
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -169,7 +185,6 @@ public partial class OverlayWindow : Window
             _dragMode = DragMode.Move;
 
         _dragStart = pos;
-        _windowStartPos = Position;
         _startWidth = Width;
         _startHeight = Height;
 
@@ -236,6 +251,6 @@ public partial class OverlayWindow : Window
     {
         base.OnPointerExited(e);
         if (_dragMode == DragMode.None)
-            Cursor = new Cursor(StandardCursorType.Arrow);
+            Cursor = Cursor.Default;
     }
 }

@@ -9,11 +9,11 @@ public class AppSettings
     public string ThemeColorName { get; set; } = "Orange";
     public bool OverlayEnabled { get; set; } = false;
     public bool OverlayClickThrough { get; set; } = true;
-    public double OverlayX { get; set; } = 50;
-    public double OverlayY { get; set; } = 50;
-    public double OverlayWidth { get; set; } = 300;
-    public double OverlayHeight { get; set; } = 120;
-    public double OverlayOpacity { get; set; } = 0.85;
+    public double OverlayX { get; set; } = OverlayDefaults.X;
+    public double OverlayY { get; set; } = OverlayDefaults.Y;
+    public double OverlayWidth { get; set; } = OverlayDefaults.Width;
+    public double OverlayHeight { get; set; } = OverlayDefaults.Height;
+    public double OverlayOpacity { get; set; } = OverlayDefaults.Opacity;
     public string OverlayText { get; set; } = "自定义内容示例";
     public CloseAction CloseAction { get; set; } = CloseAction.Ask;
     public string YoloModelPath { get; set; } = "";

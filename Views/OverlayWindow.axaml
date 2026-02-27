@@ -17,9 +17,14 @@
         CanResize="False"
         WindowStartupLocation="Manual">
     <Grid>
-        <!-- Main content border -->
+        <!-- Background layer (opacity-controlled) -->
+        <Border Background="Black"
+                CornerRadius="6"
+                Margin="6"
+                Opacity="{Binding BackgroundOpacity}" />
+
+        <!-- Content layer (always fully visible) -->
         <Border x:Name="ContentBorder"
-                Background="#AA000000"
                 CornerRadius="6"
                 Padding="8"
                 Margin="6">
@@ -30,7 +35,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding}"
-                                       Foreground="#DDFFFFFF"
+                                       Foreground="White"
                                        FontSize="11"
                                        FontFamily="Consolas, Courier New, monospace"
                                        TextWrapping="NoWrap"
@@ -54,13 +59,13 @@
         <!-- Resize grips (only visible in edit mode) -->
         <Canvas x:Name="ResizeCanvas" IsVisible="{Binding IsEditMode}">
             <!-- Right edge -->
-            <Border x:Name="GripRight" Width="6" Background="Transparent"
+            <Border x:Name="GripRight" Width="8" Background="Transparent"
                     Cursor="SizeWestEast" />
             <!-- Bottom edge -->
-            <Border x:Name="GripBottom" Height="6" Background="Transparent"
+            <Border x:Name="GripBottom" Height="8" Background="Transparent"
                     Cursor="SizeNorthSouth" />
             <!-- Bottom-right corner -->
-            <Border x:Name="GripBottomRight" Width="10" Height="10"
+            <Border x:Name="GripBottomRight" Width="12" Height="12"
                     Background="#88FFCC00" CornerRadius="2"
                     Cursor="BottomRightCorner" />
         </Canvas>

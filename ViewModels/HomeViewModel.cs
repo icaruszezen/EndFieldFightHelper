@@ -224,7 +224,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             if (IsPreviewRunning) StopPreview();
             if (IsBattleOverlayEnabled)
             {
-                _overlayService.ApplySettings(false, true, 0, 0, 300, 120, 0.85);
+                _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
             }
             IsBattleAssistEnabled = false;
         }
@@ -270,7 +270,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         else
         {
             AddLog("战斗叠加层已关闭");
-            _overlayService.ApplySettings(false, true, 0, 0, 300, 120, 0.85);
+            _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
         }
     }
 
@@ -285,7 +285,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         if (_settingsViewModel != null)
         {
-            _overlayService.ApplySettings(true, true,
+            _overlayService.ApplySettings(true,
                 _settingsViewModel.OverlayX,
                 _settingsViewModel.OverlayY,
                 _settingsViewModel.OverlayWidth,
@@ -295,7 +295,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         else
         {
             var rect = Win32Helper.GetWindowRectDwm(EndfieldWindow.Handle);
-            _overlayService.ApplySettings(true, true, rect.Left + 10, rect.Top + 50, 300, 120, 0.85);
+            _overlayService.ApplySettings(true, rect.Left + 10, rect.Top + 50, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
         }
     }
 

@@ -30,7 +30,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _isUpdatingFromDrag;
     private readonly OverlayService _overlayService;
     private readonly ISukiToastManager _toastManager;
-    private OverlayViewModel? _overlayViewModel;
     private CancellationTokenSource? _saveCts;
 
     [ObservableProperty]
@@ -46,25 +45,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _overlayEnabled;
 
     [ObservableProperty]
-    private bool _overlayClickThrough = true;
+    private double _overlayX = OverlayDefaults.X;
 
     [ObservableProperty]
-    private double _overlayX = 50;
+    private double _overlayY = OverlayDefaults.Y;
 
     [ObservableProperty]
-    private double _overlayY = 50;
+    private double _overlayWidth = OverlayDefaults.Width;
 
     [ObservableProperty]
-    private double _overlayWidth = 300;
+    private double _overlayHeight = OverlayDefaults.Height;
 
     [ObservableProperty]
-    private double _overlayHeight = 120;
-
-    [ObservableProperty]
-    private double _overlayOpacity = 0.85;
-
-    [ObservableProperty]
-    private string _overlayText = "自定义内容示例";
+    private double _overlayOpacity = OverlayDefaults.Opacity;
 
     [ObservableProperty]
     private CloseAction _closeAction = CloseAction.Ask;
@@ -158,6 +151,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         {
             _isUpdatingFromDrag = false;
         }
+
+        ScheduleSave();
     }
 
     private void RefreshInferenceDevices()
@@ -205,46 +200,34 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         if (!_isLoading) ScheduleSave();
     }
 
-    partial void OnOverlayClickThroughChanged(bool value)
-    {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
-    }
-
     partial void OnOverlayXChanged(double value)
     {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
+        UpdateOverlayPropertiesIfReady();
+        if (!_isLoading && !_isUpdatingFromDrag) ScheduleSave();
     }
 
     partial void OnOverlayYChanged(double value)
     {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
+        UpdateOverlayPropertiesIfReady();
+        if (!_isLoading && !_isUpdatingFromDrag) ScheduleSave();
     }
 
     partial void OnOverlayWidthChanged(double value)
     {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
+        UpdateOverlayPropertiesIfReady();
+        if (!_isLoading && !_isUpdatingFromDrag) ScheduleSave();
     }
 
     partial void OnOverlayHeightChanged(double value)
     {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
+        UpdateOverlayPropertiesIfReady();
+        if (!_isLoading && !_isUpdatingFromDrag) ScheduleSave();
     }
 
     partial void OnOverlayOpacityChanged(double value)
     {
-        ApplyOverlaySettingsIfReady();
-        if (!_isLoading) ScheduleSave();
-    }
-
-    partial void OnOverlayTextChanged(string value)
-    {
-        _overlayViewModel?.UpdateText(value);
-        if (!_isLoading) ScheduleSave();
+        UpdateOverlayPropertiesIfReady();
+        if (!_isLoading && !_isUpdatingFromDrag) ScheduleSave();
     }
 
     partial void OnCloseActionChanged(CloseAction value)
@@ -354,10 +337,10 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void ResetOverlayPosition()
     {
-        OverlayX = 50;
-        OverlayY = 50;
-        OverlayWidth = 300;
-        OverlayHeight = 120;
+        OverlayX = OverlayDefaults.X;
+        OverlayY = OverlayDefaults.Y;
+        OverlayWidth = OverlayDefaults.Width;
+        OverlayHeight = OverlayDefaults.Height;
     }
 
     private void LoadSettings()
@@ -374,13 +357,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     SelectedMethod = settings.DefaultCaptureMethod;
                     IsDarkTheme = settings.IsDarkTheme;
                     OverlayEnabled = settings.OverlayEnabled;
-                    OverlayClickThrough = settings.OverlayClickThrough;
                     OverlayX = settings.OverlayX;
                     OverlayY = settings.OverlayY;
                     OverlayWidth = settings.OverlayWidth;
                     OverlayHeight = settings.OverlayHeight;
                     OverlayOpacity = settings.OverlayOpacity;
-                    OverlayText = settings.OverlayText;
                     CloseAction = settings.CloseAction;
                     YoloModelPath = settings.YoloModelPath;
                     YoloConfidence = settings.YoloConfidence;
@@ -449,13 +430,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 IsDarkTheme = IsDarkTheme,
                 ThemeColorName = SelectedColorTheme?.DisplayName ?? "Orange",
                 OverlayEnabled = OverlayEnabled,
-                OverlayClickThrough = OverlayClickThrough,
                 OverlayX = OverlayX,
                 OverlayY = OverlayY,
                 OverlayWidth = OverlayWidth,
                 OverlayHeight = OverlayHeight,
                 OverlayOpacity = OverlayOpacity,
-                OverlayText = OverlayText,
                 CloseAction = CloseAction,
                 YoloModelPath = YoloModelPath,
                 GpuMode = device.IsCpu ? "cpu" : "directml",
@@ -486,11 +465,23 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         ApplyOverlaySettings();
     }
 
+    private void UpdateOverlayPropertiesIfReady()
+    {
+        if (_isLoading || _isUpdatingFromDrag)
+        {
+            return;
+        }
+
+        _overlayService.UpdateProperties(
+            OverlayX, OverlayY,
+            OverlayWidth, OverlayHeight,
+            OverlayOpacity);
+    }
+
     private void ApplyOverlaySettings()
     {
         _overlayService.ApplySettings(
             OverlayEnabled,
-            OverlayClickThrough,
             OverlayX,
             OverlayY,
             OverlayWidth,
@@ -500,8 +491,6 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public void AttachOverlay(OverlayViewModel overlayViewModel)
     {
-        _overlayViewModel = overlayViewModel;
-        _overlayViewModel.UpdateText(OverlayText);
         _overlayService.SetOverlayDataContext(overlayViewModel);
     }
 

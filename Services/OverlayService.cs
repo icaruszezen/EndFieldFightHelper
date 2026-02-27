@@ -21,7 +21,6 @@ public sealed class OverlayService : IDisposable
 
     public void ApplySettings(
         bool enabled,
-        bool clickThrough,
         double x,
         double y,
         double width,
@@ -39,7 +38,9 @@ public sealed class OverlayService : IDisposable
             var window = EnsureWindow();
             if (window == null) return;
 
-            window.Opacity = Math.Clamp(opacity, 0.1, 1.0);
+            if (_overlayViewModel != null)
+                _overlayViewModel.BackgroundOpacity = Math.Clamp(opacity, 0.1, 1.0);
+
             window.Width = Math.Max(50, width);
             window.Height = Math.Max(30, height);
             window.Position = new PixelPoint((int)Math.Round(x), (int)Math.Round(y));
@@ -50,6 +51,21 @@ public sealed class OverlayService : IDisposable
             }
 
             ApplyWindowStyles(window);
+        });
+    }
+
+    public void UpdateProperties(double x, double y, double width, double height, double opacity)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_window == null || !_window.IsVisible) return;
+
+            if (_overlayViewModel != null)
+                _overlayViewModel.BackgroundOpacity = Math.Clamp(opacity, 0.1, 1.0);
+
+            _window.Width = Math.Max(50, width);
+            _window.Height = Math.Max(30, height);
+            _window.Position = new PixelPoint((int)Math.Round(x), (int)Math.Round(y));
         });
     }
 
