@@ -100,10 +100,10 @@ each other.
 ### Lifecycle
 
 ```csharp
-// Start both loops (requires YOLO model to be loaded)
+// Reset all stats counters and error state, then start both loops (requires YOLO model to be loaded)
 void Start(IntPtr hWnd, CaptureMethod method)
 
-// Gracefully cancel both loops, wait up to 3s, clear SharedCapture and SharedDetection
+// Gracefully cancel both loops, wait up to 3s, clear SharedCapture, SharedDetection, and LastPlottedImageBytes
 void Stop()
 
 // Clean up (calls Stop + disposes SharedCapture)
@@ -122,6 +122,7 @@ void Dispose()
 | `CaptureFrameCount` | `long` | Total frames captured since Start |
 | `DetectionFrameCount` | `long` | Total frames detected since Start |
 | `LastDetectionResultCount` | `long` | Object count in last detection |
+| `LastPlottedImageBytes` | `byte[]?` | BMP bytes of the last plotted image, set by DetectionLoop (for debug display) |
 
 ### Configuration Properties (set from UI thread, read by loops)
 
@@ -129,9 +130,10 @@ void Dispose()
 |----------|------|-------------|
 | `CaptureFrameIntervalMs` | `int` | Min ms between captures (0 = unlimited). Set by Settings via FPS limit. |
 | `IsDebugOutputEnabled` | `bool` | When true, detection loop generates plotted images every 5th frame |
-| `LastPlottedImageBytes` | `byte[]?` | BMP bytes of the last plotted image (for debug display) |
 
 ### Events
+
+Both `RecognitionPipelineService` and `AutoDodgeService` expose the same event:
 
 ```csharp
 event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel.AddLog
@@ -140,7 +142,7 @@ event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel
 ## CaptureLoop Behavior
 
 1. Calls `_screenshotService.CaptureWindow(hWnd, method)`.
-2. On success: updates `SharedCapture`, increments frame counter, records duration.
+2. On success: records duration, increments frame counter, updates `SharedCapture`.
 3. Respects `CaptureFrameIntervalMs`: if the capture was faster than the interval,
    the loop sleeps for the remaining time (frame-rate cap).
 4. On failure: waits 10ms and retries.
@@ -194,8 +196,9 @@ public readonly record struct PipelineMetric(string Label, string Value);
 
 ### Implementation Rules
 
-1. **Use explicit interface implementation** for the four members so they don't
-   pollute the service's own public API:
+1. **Use explicit interface implementation** for `PipelineName`, `LastErrorMessage`,
+   and `GetMetrics` so they don't pollute the service's own public API
+   (`IsRunning` is excluded — see rule 4):
    ```csharp
    string IPipelineStatusProvider.PipelineName => "识别管道";
    ```
