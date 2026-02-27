@@ -19,6 +19,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly OverlayService _overlayService;
     private readonly RecognitionPipelineService _pipelineService;
     private readonly AutoDodgeService _autoDodgeService;
+    private SettingsViewModel? _settingsViewModel;
+    private OverlayViewModel? _overlayViewModel;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
 
@@ -69,6 +71,16 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _pipelineService.Log += msg => AddLog(msg);
         _autoDodgeService.Log += msg => AddLog(msg);
         FindEndfieldWindow();
+    }
+
+    public void SetSettingsViewModel(SettingsViewModel settingsViewModel)
+    {
+        _settingsViewModel = settingsViewModel;
+    }
+
+    public void SetOverlayViewModel(OverlayViewModel overlayViewModel)
+    {
+        _overlayViewModel = overlayViewModel;
     }
 
     public void SetCaptureMethod(CaptureMethod method)
@@ -212,7 +224,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             if (IsPreviewRunning) StopPreview();
             if (IsBattleOverlayEnabled)
             {
-                _overlayService.ApplySettings(false, true, 0, 0, 300, 200, 0.85);
+                _overlayService.ApplySettings(false, true, 0, 0, 300, 120, 0.85);
             }
             IsBattleAssistEnabled = false;
         }
@@ -258,7 +270,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         else
         {
             AddLog("战斗叠加层已关闭");
-            _overlayService.ApplySettings(false, true, 0, 0, 300, 200, 0.85);
+            _overlayService.ApplySettings(false, true, 0, 0, 300, 120, 0.85);
         }
     }
 
@@ -271,13 +283,20 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var rect = Win32Helper.GetWindowRectDwm(EndfieldWindow.Handle);
-        const double overlayWidth = 260;
-        const double overlayHeight = 200;
-        double x = rect.Left + 10;
-        double y = rect.Top + (rect.Height - overlayHeight) / 2.0;
-
-        _overlayService.ApplySettings(true, true, x, y, overlayWidth, overlayHeight, 0.85);
+        if (_settingsViewModel != null)
+        {
+            _overlayService.ApplySettings(true, true,
+                _settingsViewModel.OverlayX,
+                _settingsViewModel.OverlayY,
+                _settingsViewModel.OverlayWidth,
+                _settingsViewModel.OverlayHeight,
+                _settingsViewModel.OverlayOpacity);
+        }
+        else
+        {
+            var rect = Win32Helper.GetWindowRectDwm(EndfieldWindow.Handle);
+            _overlayService.ApplySettings(true, true, rect.Left + 10, rect.Top + 50, 300, 120, 0.85);
+        }
     }
 
     [RelayCommand]
@@ -297,6 +316,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         {
             Dispatcher.UIThread.Post(() => LogMessages.Add(entry));
         }
+
+        _overlayViewModel?.AddLog(entry);
     }
 
     public void Dispose()

@@ -212,6 +212,33 @@ public static class Win32Helper
 
     #endregion
 
+    #region Hit Test
+
+    public const uint WM_NCHITTEST = 0x0084;
+    public const int HTTRANSPARENT = -1;
+    public const int HTCLIENT = 1;
+
+    [DllImport("user32.dll")]
+    public static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
+
+    public delegate IntPtr SUBCLASSPROC(
+        IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam,
+        UIntPtr uIdSubclass, IntPtr dwRefData);
+
+    [DllImport("comctl32.dll", SetLastError = true)]
+    public static extern bool SetWindowSubclass(
+        IntPtr hWnd, SUBCLASSPROC pfnSubclass, UIntPtr uIdSubclass, IntPtr dwRefData);
+
+    [DllImport("comctl32.dll", SetLastError = true)]
+    public static extern bool RemoveWindowSubclass(
+        IntPtr hWnd, SUBCLASSPROC pfnSubclass, UIntPtr uIdSubclass);
+
+    [DllImport("comctl32.dll")]
+    public static extern IntPtr DefSubclassProc(
+        IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+    #endregion
+
     #region Input Simulation
 
     [DllImport("user32.dll", CharSet = CharSet.Auto)]

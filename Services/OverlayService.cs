@@ -11,8 +11,9 @@ namespace EndFieldFightHelper.Services;
 public sealed class OverlayService : IDisposable
 {
     private OverlayWindow? _window;
-    private bool _lastClickThrough;
     private OverlayViewModel? _overlayViewModel;
+
+    public event Action<double, double, double, double>? OverlayPositionSizeChanged;
 
     public OverlayService()
     {
@@ -29,8 +30,6 @@ public sealed class OverlayService : IDisposable
     {
         Dispatcher.UIThread.Post(() =>
         {
-            _lastClickThrough = clickThrough;
-
             if (!enabled)
             {
                 HideWindow();
@@ -50,7 +49,7 @@ public sealed class OverlayService : IDisposable
                 window.Show();
             }
 
-            ApplyClickThrough(window, clickThrough);
+            ApplyWindowStyles(window);
         });
     }
 
@@ -67,7 +66,7 @@ public sealed class OverlayService : IDisposable
         {
             DataContext = _overlayViewModel
         };
-        _window.Opened += (_, _) => ApplyClickThrough(_window, _lastClickThrough);
+        _window.Opened += (_, _) => ApplyWindowStyles(_window);
         _window.Closed += (_, _) => _window = null;
 
         return _window;
@@ -75,29 +74,34 @@ public sealed class OverlayService : IDisposable
 
     public void SetOverlayDataContext(OverlayViewModel overlayViewModel)
     {
+        if (_overlayViewModel != null)
+        {
+            _overlayViewModel.PositionSizeChanged -= OnPositionSizeChanged;
+        }
+
         _overlayViewModel = overlayViewModel;
+        _overlayViewModel.PositionSizeChanged += OnPositionSizeChanged;
+
         if (_window != null)
         {
             _window.DataContext = overlayViewModel;
         }
     }
 
-    private static void ApplyClickThrough(Window? window, bool clickThrough)
+    private void OnPositionSizeChanged(double x, double y, double width, double height)
     {
-        if (window == null)
-        {
-            return;
-        }
+        OverlayPositionSizeChanged?.Invoke(x, y, width, height);
+    }
+
+    private static void ApplyWindowStyles(Window? window)
+    {
+        if (window == null) return;
 
         var handle = window.TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        if (handle == IntPtr.Zero)
-        {
-            return;
-        }
+        if (handle == IntPtr.Zero) return;
 
         Win32Helper.SetWindowExStyle(handle, Win32Helper.WS_EX_TOOLWINDOW, true);
         Win32Helper.SetWindowExStyle(handle, Win32Helper.WS_EX_LAYERED, true);
-        Win32Helper.SetWindowExStyle(handle, Win32Helper.WS_EX_TRANSPARENT, clickThrough);
     }
 
     private void HideWindow()
@@ -112,6 +116,11 @@ public sealed class OverlayService : IDisposable
 
     public void Dispose()
     {
+        if (_overlayViewModel != null)
+        {
+            _overlayViewModel.PositionSizeChanged -= OnPositionSizeChanged;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             if (_window == null)

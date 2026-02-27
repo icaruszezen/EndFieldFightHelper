@@ -27,6 +27,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 {
     private readonly string _settingsPath;
     private bool _isLoading;
+    private bool _isUpdatingFromDrag;
     private readonly OverlayService _overlayService;
     private readonly ISukiToastManager _toastManager;
     private OverlayViewModel? _overlayViewModel;
@@ -136,9 +137,27 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             "EndFieldFightHelper",
             "settings.json");
 
+        _overlayService.OverlayPositionSizeChanged += OnOverlayPositionSizeFromWindow;
+
         RefreshInferenceDevices();
         InitializeColorThemes();
         LoadSettings();
+    }
+
+    private void OnOverlayPositionSizeFromWindow(double x, double y, double width, double height)
+    {
+        _isUpdatingFromDrag = true;
+        try
+        {
+            OverlayX = x;
+            OverlayY = y;
+            OverlayWidth = width;
+            OverlayHeight = height;
+        }
+        finally
+        {
+            _isUpdatingFromDrag = false;
+        }
     }
 
     private void RefreshInferenceDevices()
@@ -332,6 +351,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         SelectedColorTheme = theme;
     }
 
+    [RelayCommand]
+    private void ResetOverlayPosition()
+    {
+        OverlayX = 50;
+        OverlayY = 50;
+        OverlayWidth = 300;
+        OverlayHeight = 120;
+    }
+
     private void LoadSettings()
     {
         _isLoading = true;
@@ -450,7 +478,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     private void ApplyOverlaySettingsIfReady()
     {
-        if (_isLoading)
+        if (_isLoading || _isUpdatingFromDrag)
         {
             return;
         }
@@ -479,6 +507,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _overlayService.OverlayPositionSizeChanged -= OnOverlayPositionSizeFromWindow;
         _saveCts?.Cancel();
         _saveCts?.Dispose();
     }

@@ -47,6 +47,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             InputTestViewModel, SettingsViewModel);
         TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
 
+        HomeViewModel.SetSettingsViewModel(SettingsViewModel);
+        HomeViewModel.SetOverlayViewModel(OverlayViewModel);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
         SettingsViewModel.CaptureMethodChanged += method =>
