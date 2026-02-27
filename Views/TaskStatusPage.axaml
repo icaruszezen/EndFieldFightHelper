@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:models="clr-namespace:EndFieldFightHelper.Models"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
+             x:Class="EndFieldFightHelper.Views.TaskStatusPage"
+             x:DataType="vm:TaskStatusViewModel">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="40,30" Spacing="20">
+
+            <TextBlock Text="任务状态" FontSize="28" FontWeight="Bold" />
+            <TextBlock Text="实时显示各管道的运行状态与性能指标"
+                       Opacity="0.6" FontSize="13" Margin="0,-12,0,0" />
+
+            <ItemsControl ItemsSource="{Binding PipelineItems}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PipelineStatusItemViewModel">
+                        <Border Background="{DynamicResource SukiCardBackground}"
+                                CornerRadius="8"
+                                Padding="24,20"
+                                Margin="0,0,16,16"
+                                MinWidth="320"
+                                MaxWidth="420">
+                            <StackPanel Spacing="12">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <!-- Status indicator: green=running, red=error, gray=stopped -->
+                                    <Panel Grid.Column="0" Width="10" Height="10"
+                                           VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="#66888888"
+                                                 IsVisible="{Binding !IsRunning}" />
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="#FF4CAF50"
+                                                 IsVisible="{Binding IsRunning}" />
+                                        <Ellipse Width="10" Height="10"
+                                                 Fill="#FFFF5252"
+                                                 IsVisible="{Binding HasError}" />
+                                    </Panel>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Name}"
+                                               FontSize="16" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+
+                                    <!-- Running/stopped badge -->
+                                    <Border Grid.Column="2"
+                                            CornerRadius="10"
+                                            Padding="10,4"
+                                            VerticalAlignment="Center">
+                                        <Border.Background>
+                                            <SolidColorBrush Color="{DynamicResource SukiPrimaryColor}" Opacity="0.15" />
+                                        </Border.Background>
+                                        <Panel>
+                                            <TextBlock Text="运行中"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       Opacity="0.9"
+                                                       IsVisible="{Binding IsRunning}" />
+                                            <TextBlock Text="已停止"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       Opacity="0.5"
+                                                       IsVisible="{Binding !IsRunning}" />
+                                        </Panel>
+                                    </Border>
+                                </Grid>
+
+                                <Border Height="1"
+                                        Background="{DynamicResource SukiBackground}"
+                                        Margin="0,2" />
+
+                                <!-- Metrics -->
+                                <ItemsControl ItemsSource="{Binding Metrics}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:PipelineMetric">
+                                            <Grid ColumnDefinitions="140,*" Margin="0,3">
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Label}"
+                                                           FontSize="13"
+                                                           Opacity="0.6" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Value}"
+                                                           FontSize="13"
+                                                           FontFamily="Consolas, Courier New, monospace"
+                                                           FontWeight="Medium" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- Error message -->
+                                <Border Background="#20FF4444"
+                                        CornerRadius="4"
+                                        Padding="10,6"
+                                        IsVisible="{Binding HasError}">
+                                    <TextBlock Text="{Binding ErrorMessage}"
+                                               FontSize="12"
+                                               Foreground="#FFFF6666"
+                                               TextWrapping="Wrap" />
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

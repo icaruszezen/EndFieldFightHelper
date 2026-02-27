@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,7 +7,7 @@ using EndFieldFightHelper.Models;
 
 namespace EndFieldFightHelper.Services;
 
-public sealed class AutoDodgeService : IDisposable
+public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
 {
     private readonly SharedDetectionState _sharedDetection;
     private readonly IInputService _inputService;
@@ -15,6 +16,7 @@ public sealed class AutoDodgeService : IDisposable
     private Task? _dodgeTask;
 
     private long _dodgeCount;
+    private volatile string? _lastErrorMessage;
 
     private const string DodgePromptName = "闪避提示";
     private const int VK_LSHIFT = 0xA0;
@@ -23,6 +25,14 @@ public sealed class AutoDodgeService : IDisposable
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long DodgeCount => Volatile.Read(ref _dodgeCount);
+
+    string IPipelineStatusProvider.PipelineName => "自动闪避";
+    string? IPipelineStatusProvider.LastErrorMessage => _lastErrorMessage;
+
+    IReadOnlyList<PipelineMetric> IPipelineStatusProvider.GetMetrics()
+    {
+        return [new("闪避次数", DodgeCount.ToString())];
+    }
 
     public event Action<string>? Log;
 
@@ -37,6 +47,7 @@ public sealed class AutoDodgeService : IDisposable
         if (IsRunning) return;
 
         Volatile.Write(ref _dodgeCount, 0);
+        _lastErrorMessage = null;
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
@@ -111,6 +122,7 @@ public sealed class AutoDodgeService : IDisposable
             }
             catch (Exception ex)
             {
+                _lastErrorMessage = ex.Message;
                 Log?.Invoke($"自动闪避线程异常: {ex.Message}");
                 await Task.Delay(100, token);
             }

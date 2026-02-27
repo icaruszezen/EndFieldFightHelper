@@ -21,6 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public YoloDetectionViewModel YoloDetectionViewModel { get; }
     public InputTestViewModel InputTestViewModel { get; }
     public DebugViewModel DebugViewModel { get; }
+    public TaskStatusViewModel TaskStatusViewModel { get; }
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
@@ -44,6 +45,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         DebugViewModel = new DebugViewModel(
             pipelineService, ScreenshotViewModel, YoloDetectionViewModel,
             InputTestViewModel, SettingsViewModel);
+        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
 
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
@@ -126,6 +128,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         HomeViewModel.Dispose();
         DebugViewModel.Dispose();
+        TaskStatusViewModel.Dispose();
         ScreenshotViewModel.Dispose();
         SettingsViewModel.Dispose();
         _detectionService.Dispose();

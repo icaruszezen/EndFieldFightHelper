@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,7 +7,7 @@ using EndFieldFightHelper.Models;
 
 namespace EndFieldFightHelper.Services;
 
-public sealed class RecognitionPipelineService : IDisposable
+public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusProvider
 {
     private readonly IScreenshotService _screenshotService;
     private readonly YoloDetectionService _detectionService;
@@ -27,6 +28,7 @@ public sealed class RecognitionPipelineService : IDisposable
     private volatile bool _isDebugOutputEnabled;
     private volatile int _captureFrameIntervalMs;
     private byte[]? _lastPlottedImageBytes;
+    private volatile string? _lastErrorMessage;
 
     public long LastCaptureDurationMs => Volatile.Read(ref _lastCaptureDurationMs);
     public long LastDetectionDurationMs => Volatile.Read(ref _lastDetectionDurationMs);
@@ -47,6 +49,28 @@ public sealed class RecognitionPipelineService : IDisposable
     }
 
     public byte[]? LastPlottedImageBytes => Volatile.Read(ref _lastPlottedImageBytes);
+
+    string IPipelineStatusProvider.PipelineName => "识别管道";
+    string? IPipelineStatusProvider.LastErrorMessage => _lastErrorMessage;
+
+    IReadOnlyList<PipelineMetric> IPipelineStatusProvider.GetMetrics()
+    {
+        var capMs = LastCaptureDurationMs;
+        var detMs = LastDetectionDurationMs;
+        var capCount = CaptureFrameCount;
+        var detCount = DetectionFrameCount;
+        var resultCount = LastDetectionResultCount;
+        var skipped = capCount - detCount;
+
+        return
+        [
+            new("截图耗时", $"{capMs} ms"),
+            new("推理耗时", $"{detMs} ms"),
+            new("截图帧数", capCount.ToString()),
+            new("识别帧数", $"{detCount} (跳过 {skipped})"),
+            new("目标数", resultCount.ToString()),
+        ];
+    }
 
     public event Action<string>? Log;
 
@@ -71,6 +95,7 @@ public sealed class RecognitionPipelineService : IDisposable
         Volatile.Write(ref _lastCaptureDurationMs, 0);
         Volatile.Write(ref _lastDetectionDurationMs, 0);
         Volatile.Write(ref _lastDetectionResultCount, 0);
+        _lastErrorMessage = null;
 
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
@@ -146,6 +171,7 @@ public sealed class RecognitionPipelineService : IDisposable
             }
             catch (Exception ex)
             {
+                _lastErrorMessage = $"截图线程: {ex.Message}";
                 Log?.Invoke($"截图线程异常: {ex.Message}");
                 await Task.Delay(100, token);
             }
@@ -193,6 +219,7 @@ public sealed class RecognitionPipelineService : IDisposable
             }
             catch (Exception ex)
             {
+                _lastErrorMessage = $"识别线程: {ex.Message}";
                 Log?.Invoke($"识别线程异常: {ex.Message}");
                 await Task.Delay(100, token);
             }

@@ -26,6 +26,15 @@
                 </suki:SukiSideMenuItem.PageContent>
             </suki:SukiSideMenuItem>
             
+            <suki:SukiSideMenuItem Header="任务状态" x:Name="TaskStatusMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M3,3H11V7.34L9.5,9.5C9.17,10 9,10.5 9,11.04V21H21V11.04C21,10.5 20.83,10 20.5,9.5L19,7.34V3H21V1H3V3M13,3H17V7H13V3M11,11.04L13,8H17L19,11.04V19H11V11.04M13,11V13H17V11H13M13,15V17H17V15H13Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:TaskStatusPage DataContext="{Binding TaskStatusViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+
             <suki:SukiSideMenuItem Header="Debug" x:Name="DebugMenuItem">
                 <suki:SukiSideMenuItem.Icon>
                     <PathIcon Data="M14,12H10V10H14M14,16H10V14H14M20,8H17.19C16.74,7.22 16.12,6.55 15.37,6.04L17,4.41L15.59,3L13.42,5.17C12.96,5.06 12.5,5 12,5C11.5,5 11.04,5.06 10.59,5.17L8.41,3L7,4.41L8.62,6.04C7.88,6.55 7.26,7.22 6.81,8H4V10H6.09C6.04,10.33 6,10.66 6,11V12H4V14H6V15C6,15.34 6.04,15.67 6.09,16H4V18H6.81C7.85,19.79 9.78,21 12,21C14.22,21 16.15,19.79 17.19,18H20V16H17.91C17.96,15.67 18,15.34 18,15V14H20V12H18V11C18,10.66 17.96,10.33 17.91,10H20V8Z" />

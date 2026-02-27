@@ -2,11 +2,14 @@
 description: Recognition pipeline architecture, shared state conventions, and threading rules for EndFieldFightHelper.
 globs:
   - Services/RecognitionPipelineService.cs
+  - Services/AutoDodgeService.cs
   - Models/SharedCaptureFrame.cs
   - Models/SharedDetectionState.cs
   - Models/DetectionResult.cs
+  - Models/IPipelineStatusProvider.cs
   - ViewModels/HomeViewModel.cs
   - ViewModels/DebugViewModel.cs
+  - ViewModels/TaskStatusViewModel.cs
   - ViewModels/MainWindowViewModel.cs
 alwaysApply: false
 ---
@@ -49,9 +52,12 @@ each other.
 | File | Role |
 |------|------|
 | `Services/RecognitionPipelineService.cs` | Owns both loops, exposes shared state and stats |
+| `Services/AutoDodgeService.cs` | Consumes detection results, sends dodge input |
 | `Models/SharedCaptureFrame.cs` | Thread-safe latest-frame holder (Bitmap + FrameId) |
 | `Models/SharedDetectionState.cs` | Thread-safe latest-results holder (DetectionResult list + FrameId) |
 | `Models/DetectionResult.cs` | Immutable detection result (Name, Confidence, Bounds) |
+| `Models/IPipelineStatusProvider.cs` | Status reporting interface + `PipelineMetric` type |
+| `ViewModels/TaskStatusViewModel.cs` | Polls all providers, drives the Task Status page |
 
 ## Shared State Contract
 
@@ -164,6 +170,74 @@ event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel
 6. **Volatile fields** (`_captureFrameIntervalMs`, `_isDebugOutputEnabled`, stats counters)
    are used for cross-thread communication of simple values without locks.
 
+## Pipeline Status Reporting (`IPipelineStatusProvider`)
+
+All pipeline/service classes that have a running state should implement
+`IPipelineStatusProvider` (defined in `Models/IPipelineStatusProvider.cs`).
+This enables the **Task Status** page to display every pipeline's status
+automatically via `ItemsControl` — no View changes needed when a new
+pipeline is added.
+
+### Interface
+
+```csharp
+public interface IPipelineStatusProvider
+{
+    string PipelineName { get; }          // Display name shown on the status card
+    bool IsRunning { get; }               // Whether the pipeline loop(s) are active
+    string? LastErrorMessage { get; }     // Most recent exception message, null if healthy
+    IReadOnlyList<PipelineMetric> GetMetrics(); // Key-value metrics (label + value)
+}
+
+public readonly record struct PipelineMetric(string Label, string Value);
+```
+
+### Implementation Rules
+
+1. **Use explicit interface implementation** for the four members so they don't
+   pollute the service's own public API:
+   ```csharp
+   string IPipelineStatusProvider.PipelineName => "识别管道";
+   ```
+
+2. **Error tracking** — add a `volatile string? _lastErrorMessage` field.
+   - Set it in every `catch (Exception ex)` block inside the pipeline loop.
+   - Clear it (`= null`) at the start of `Start()`.
+
+3. **`GetMetrics()` must be safe to call from any thread** — read stats via
+   `Volatile.Read` / `Interlocked`, never lock. Return a new list each call.
+
+4. **`IsRunning`** — reuse the existing `IsRunning` property if the service
+   already has one (pattern: `_cts != null && !_cts.IsCancellationRequested`).
+
+### Current Implementations
+
+| Service | PipelineName | Metrics |
+|---------|-------------|---------|
+| `RecognitionPipelineService` | 识别管道 | 截图耗时, 推理耗时, 截图帧数, 识别帧数, 目标数 |
+| `AutoDodgeService` | 自动闪避 | 闪避次数 |
+
+### Registration
+
+In `MainWindowViewModel` constructor, pass all providers as a list to
+`TaskStatusViewModel`:
+
+```csharp
+TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
+```
+
+When adding a new service, append it to this list. The Task Status page will
+automatically render a new card for it.
+
+### Task Status Page Architecture
+
+- `TaskStatusViewModel` holds `IReadOnlyList<IPipelineStatusProvider>` and
+  creates a matching `ObservableCollection<PipelineStatusItemViewModel>`.
+- A `System.Threading.Timer` (500ms interval) polls every provider and
+  pushes updates to the UI via `Dispatcher.UIThread.Post`.
+- `TaskStatusPage.axaml` uses `ItemsControl` + `WrapPanel` so the layout
+  adapts to any number of pipelines.
+
 ## Adding a New Pipeline Stage
 
 To add a new processing stage (e.g., a post-processing thread):
@@ -188,7 +262,10 @@ To add a new processing stage (e.g., a post-processing thread):
 
 5. **Expose stats** — add `Volatile` counter fields + public read-only properties.
 
-6. **Debug support** — add a new tab in `DebugViewModel` / `DebugPage` to visualize
+6. **Implement `IPipelineStatusProvider`** — follow the rules above so the new
+   service appears on the Task Status page automatically.
+
+7. **Debug support** — add a new tab in `DebugViewModel` / `DebugPage` to visualize
    the new stage's output, gated behind `IsDebugOutputEnabled`.
 
 ## Integration Points
