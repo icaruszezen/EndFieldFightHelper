@@ -15,7 +15,7 @@
         <suki:SukiToastHost x:Name="ToastHost" MaxToasts="3" />
     </suki:SukiWindow.Hosts>
     
-    <suki:SukiSideMenu IsMenuExpanded="False">
+    <suki:SukiSideMenu IsMenuExpanded="False" x:Name="SideMenu">
         <suki:SukiSideMenu.Items>
             <suki:SukiSideMenuItem Header="首页" x:Name="HomeMenuItem">
                 <suki:SukiSideMenuItem.Icon>

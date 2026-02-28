@@ -22,4 +22,10 @@ public class AppSettings
     public float YoloConfidence { get; set; } = 0.5f;
     public float YoloIoU { get; set; } = 0.45f;
     public int CaptureFrameRateLimit { get; set; } = 60;
+
+    public bool IsAutoDodgeEnabled { get; set; } = false;
+    public bool IsAutoSkillEnabled { get; set; } = false;
+    public bool IsAutoAttackEnabled { get; set; } = false;
+    public bool IsAutoUltimateEnabled { get; set; } = false;
+    public bool IsBattleOverlayEnabled { get; set; } = false;
 }

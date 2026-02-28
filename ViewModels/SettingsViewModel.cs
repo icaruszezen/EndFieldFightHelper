@@ -32,6 +32,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly ISukiToastManager _toastManager;
     private CancellationTokenSource? _saveCts;
 
+    private bool _homeAutoDodge;
+    private bool _homeAutoSkill;
+    private bool _homeAutoAttack;
+    private bool _homeAutoUltimate;
+    private bool _homeBattleOverlay;
+
     [ObservableProperty]
     private CaptureMethod _selectedMethod = CaptureMethod.PrintWindow;
 
@@ -378,6 +384,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     var savedTheme = AvailableColorThemes
                         .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
                     SelectedColorTheme = savedTheme ?? (AvailableColorThemes.Count > 0 ? AvailableColorThemes[0] : null);
+
+                    _homeAutoDodge = settings.IsAutoDodgeEnabled;
+                    _homeAutoSkill = settings.IsAutoSkillEnabled;
+                    _homeAutoAttack = settings.IsAutoAttackEnabled;
+                    _homeAutoUltimate = settings.IsAutoUltimateEnabled;
+                    _homeBattleOverlay = settings.IsBattleOverlayEnabled;
                 }
             }
             else if (AvailableColorThemes.Count > 0)
@@ -442,6 +454,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 YoloConfidence = (float)YoloConfidence,
                 YoloIoU = (float)YoloIoU,
                 CaptureFrameRateLimit = SelectedFrameRateLimit.Value,
+                IsAutoDodgeEnabled = _homeAutoDodge,
+                IsAutoSkillEnabled = _homeAutoSkill,
+                IsAutoAttackEnabled = _homeAutoAttack,
+                IsAutoUltimateEnabled = _homeAutoUltimate,
+                IsBattleOverlayEnabled = _homeBattleOverlay,
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -487,6 +504,23 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             OverlayWidth,
             OverlayHeight,
             OverlayOpacity);
+    }
+
+    public (bool AutoDodge, bool AutoSkill, bool AutoAttack, bool AutoUltimate, bool BattleOverlay) GetHomeToggles()
+        => (_homeAutoDodge, _homeAutoSkill, _homeAutoAttack, _homeAutoUltimate, _homeBattleOverlay);
+
+    public void UpdateHomeToggle(string name, bool value)
+    {
+        switch (name)
+        {
+            case nameof(AppSettings.IsAutoDodgeEnabled): _homeAutoDodge = value; break;
+            case nameof(AppSettings.IsAutoSkillEnabled): _homeAutoSkill = value; break;
+            case nameof(AppSettings.IsAutoAttackEnabled): _homeAutoAttack = value; break;
+            case nameof(AppSettings.IsAutoUltimateEnabled): _homeAutoUltimate = value; break;
+            case nameof(AppSettings.IsBattleOverlayEnabled): _homeBattleOverlay = value; break;
+            default: return;
+        }
+        ScheduleSave();
     }
 
     public void AttachOverlay(OverlayViewModel overlayViewModel)

@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Win32;
 using EndFieldFightHelper.Helpers;
@@ -18,6 +21,7 @@ public partial class MainWindow : SukiWindow
     private readonly HotkeyService _hotkeyService;
     private TrayIconService? _trayIconService;
     private bool _isClosingConfirmed;
+    private bool _suppressSideMenuSelection;
     public static ISukiToastManager ToastManager { get; } = new SukiToastManager();
 
     public MainWindow()
@@ -45,6 +49,62 @@ public partial class MainWindow : SukiWindow
         {
             _hotkeyService.Register(handle);
             Win32Properties.AddWndProcHookCallback(this, WndProcHook);
+        }
+
+        SideMenu.AddHandler(
+            SelectingItemsControl.SelectionChangedEvent,
+            OnSideMenuSelectionChanged,
+            Avalonia.Interactivity.RoutingStrategies.Bubble,
+            true);
+    }
+
+    private async void OnSideMenuSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        try
+        {
+            if (_suppressSideMenuSelection)
+                return;
+
+            var leavingTeamSetup = e.RemovedItems
+                .OfType<SukiSideMenuItem>()
+                .Any(item => item == TeamSetupMenuItem);
+
+            if (!leavingTeamSetup || !_viewModel.TeamSetupViewModel.HasGaps)
+                return;
+
+            if (e.Source is not SelectingItemsControl selector)
+                return;
+
+            var targetItem = e.AddedItems.OfType<SukiSideMenuItem>().FirstOrDefault();
+
+            _suppressSideMenuSelection = true;
+            selector.SelectedItem = TeamSetupMenuItem;
+            _suppressSideMenuSelection = false;
+
+            var vm = _viewModel.TeamSetupViewModel;
+            var slotNames = new List<string?>();
+            for (var i = 0; i < vm.TeamSlots.Count; i++)
+                slotNames.Add(vm.GetSlot(i + 1)?.Name);
+
+            var dialog = new TeamCompactDialog();
+            dialog.SetSlotNames(slotNames);
+            await dialog.ShowDialog(this);
+
+            if (dialog.IsConfirmed)
+            {
+                vm.CompactTeam();
+
+                if (targetItem != null)
+                {
+                    _suppressSideMenuSelection = true;
+                    selector.SelectedItem = targetItem;
+                    _suppressSideMenuSelection = false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"SideMenu selection handler failed: {ex}");
         }
     }
 

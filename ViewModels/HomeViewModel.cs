@@ -25,6 +25,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private DebugViewModel? _debugViewModel;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
+    private bool _isLoadingToggles;
 
     [ObservableProperty]
     private WindowInfo? _endfieldWindow;
@@ -81,6 +82,21 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public void SetSettingsViewModel(SettingsViewModel settingsViewModel)
     {
         _settingsViewModel = settingsViewModel;
+
+        _isLoadingToggles = true;
+        try
+        {
+            var t = settingsViewModel.GetHomeToggles();
+            IsAutoDodgeEnabled = t.AutoDodge;
+            IsAutoSkillEnabled = t.AutoSkill;
+            IsAutoAttackEnabled = t.AutoAttack;
+            IsAutoUltimateEnabled = t.AutoUltimate;
+            IsBattleOverlayEnabled = t.BattleOverlay;
+        }
+        finally
+        {
+            _isLoadingToggles = false;
+        }
     }
 
     public void SetOverlayViewModel(OverlayViewModel overlayViewModel)
@@ -254,6 +270,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     partial void OnIsAutoDodgeEnabledChanged(bool value)
     {
+        if (_isLoadingToggles) return;
+
         if (value)
         {
             AddLog("自动闪避已开启");
@@ -266,25 +284,35 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _autoDodgeService.Stop();
             AddLog("自动闪避已关闭");
         }
+
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoDodgeEnabled), value);
     }
 
     partial void OnIsAutoSkillEnabledChanged(bool value)
     {
+        if (_isLoadingToggles) return;
         AddLog(value ? "自动技能已开启" : "自动技能已关闭");
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoSkillEnabled), value);
     }
 
     partial void OnIsAutoAttackEnabledChanged(bool value)
     {
+        if (_isLoadingToggles) return;
         AddLog(value ? "自动攻击已开启" : "自动攻击已关闭");
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoAttackEnabled), value);
     }
 
     partial void OnIsAutoUltimateEnabledChanged(bool value)
     {
+        if (_isLoadingToggles) return;
         AddLog(value ? "自动终结技已开启" : "自动终结技已关闭");
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoUltimateEnabled), value);
     }
 
     partial void OnIsBattleOverlayEnabledChanged(bool value)
     {
+        if (_isLoadingToggles) return;
+
         if (value)
         {
             AddLog("战斗叠加层已开启");
@@ -295,6 +323,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             AddLog("战斗叠加层已关闭");
             _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
         }
+
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsBattleOverlayEnabled), value);
     }
 
     private void ApplyBattleOverlay()

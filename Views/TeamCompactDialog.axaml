@@ -1,0 +1,60 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.TeamCompactDialog"
+        Title="配队空位提醒"
+        Width="460" Height="280"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Border Background="{DynamicResource SukiCardBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource SukiControlBorderBrush}"
+            BorderThickness="1"
+            Padding="32">
+        <StackPanel Spacing="16">
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
+                              Width="20" Height="20"
+                              Foreground="#FF9800" />
+                    <TextBlock Text="配队空位补齐提醒"
+                               FontSize="18" FontWeight="SemiBold" />
+                </StackPanel>
+                <TextBlock Text="当前配队中存在空位。在游戏中，角色始终从1号位开始依次排列，中间不会有空位。"
+                           TextWrapping="Wrap" Opacity="0.8" FontSize="13"
+                           Margin="0,4,0,0" />
+                <TextBlock x:Name="ExampleText"
+                           FontSize="13" Opacity="0.6"
+                           Margin="0,2,0,0" />
+                <TextBlock Text="点击「确认补位」将自动把角色向前补齐。"
+                           TextWrapping="Wrap" Opacity="0.8" FontSize="13"
+                           Margin="0,2,0,0" />
+            </StackPanel>
+
+            <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+                <Panel Grid.Column="0" />
+                <Button x:Name="CancelButton"
+                        Grid.Column="1"
+                        Content="返回修改"
+                        Padding="20,10"
+                        CornerRadius="6"
+                        Margin="0,0,10,0" />
+                <Button x:Name="ConfirmButton"
+                        Grid.Column="2"
+                        Content="确认补位"
+                        Padding="20,10"
+                        CornerRadius="6"
+                        Classes="Flat" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</Window>
