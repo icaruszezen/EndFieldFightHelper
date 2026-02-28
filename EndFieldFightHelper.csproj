@@ -27,6 +27,11 @@
     <PackageReference Include="Microsoft.AI.DirectML" Version="1.15.4" GeneratePathProperty="true" ExcludeAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Resources\public\gamedata.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Resources\public\avatars\**\*.webp" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == '' ">
     <None Include="$(PkgMicrosoft_AI_DirectML)\bin\x64-win\DirectML.dll"
           Link="runtimes\win-x64\native\DirectML.dll"

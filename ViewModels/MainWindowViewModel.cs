@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public InputTestViewModel InputTestViewModel { get; }
     public DebugViewModel DebugViewModel { get; }
     public TaskStatusViewModel TaskStatusViewModel { get; }
+    public TeamSetupViewModel TeamSetupViewModel { get; }
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
@@ -46,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService, ScreenshotViewModel, YoloDetectionViewModel,
             InputTestViewModel, SettingsViewModel);
         TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
+        TeamSetupViewModel = new TeamSetupViewModel();
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);

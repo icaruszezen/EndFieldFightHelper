@@ -26,6 +26,15 @@
                 </suki:SukiSideMenuItem.PageContent>
             </suki:SukiSideMenuItem>
             
+            <suki:SukiSideMenuItem Header="角色配队" x:Name="TeamSetupMenuItem">
+                <suki:SukiSideMenuItem.Icon>
+                    <PathIcon Data="M16,13C15.71,13 15.38,13 15.03,13.05C16.19,13.89 17,15 17,16.5V19H23V16.5C23,14.17 18.33,13 16,13M8,13C5.67,13 1,14.17 1,16.5V19H15V16.5C15,14.17 10.33,13 8,13M8,11A3,3 0 0,0 11,8A3,3 0 0,0 8,5A3,3 0 0,0 5,8A3,3 0 0,0 8,11M16,11A3,3 0 0,0 19,8A3,3 0 0,0 16,5A3,3 0 0,0 13,8A3,3 0 0,0 16,11Z" />
+                </suki:SukiSideMenuItem.Icon>
+                <suki:SukiSideMenuItem.PageContent>
+                    <views:TeamSetupPage DataContext="{Binding TeamSetupViewModel}" />
+                </suki:SukiSideMenuItem.PageContent>
+            </suki:SukiSideMenuItem>
+            
             <suki:SukiSideMenuItem Header="任务状态" x:Name="TaskStatusMenuItem">
                 <suki:SukiSideMenuItem.Icon>
                     <PathIcon Data="M3,3H11V7.34L9.5,9.5C9.17,10 9,10.5 9,11.04V21H21V11.04C21,10.5 20.83,10 20.5,9.5L19,7.34V3H21V1H3V3M13,3H17V7H13V3M11,11.04L13,8H17L19,11.04V19H11V11.04M13,11V13H17V11H13M13,15V17H17V15H13Z" />

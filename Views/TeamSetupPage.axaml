@@ -1,0 +1,366 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:models="clr-namespace:EndFieldFightHelper.Models"
+             xmlns:converters="clr-namespace:EndFieldFightHelper.Converters"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="800"
+             x:Class="EndFieldFightHelper.Views.TeamSetupPage"
+             x:DataType="vm:TeamSetupViewModel">
+
+    <UserControl.Resources>
+        <converters:RarityToBrushConverter x:Key="RarityToBrush" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Button.SlotButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.SlotButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <Style Selector="Button.CharCard">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.CharCard:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.CharCard:disabled">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="40,30" Spacing="16">
+
+            <TextBlock Text="角色配队" FontSize="28" FontWeight="Bold" />
+
+            <!-- Notice banner -->
+            <Border Background="#33FF9800"
+                    CornerRadius="6"
+                    Padding="14,10"
+                    Margin="0,-4,0,0">
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <PathIcon Data="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M11,17H13V11H11V17Z"
+                                  Width="14" Height="14"
+                                  Foreground="#FF9800" />
+                        <TextBlock Text="请按照游戏内的队伍顺序（从左到右）依次选择角色，位置顺序必须与游戏内一致"
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="#FF9800" />
+                    </StackPanel>
+                    <TextBlock Text="参考游戏左下角的角色头像排列：1号位对应最左侧角色，4号位对应最右侧角色。支持 1~4 人编队。"
+                               FontSize="11" Opacity="0.7" Margin="20,0,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- ==================== Team Slots ==================== -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24,20">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="当前队伍" FontSize="18" FontWeight="SemiBold" />
+                            <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,4,0,0">
+                                <TextBlock Text="已选择" Opacity="0.6" FontSize="12" />
+                                <TextBlock Text="{Binding TeamCount}" FontSize="12" FontWeight="Bold" />
+                                <TextBlock Text="/ 4 名角色    点击槽位可切换当前编辑位置"
+                                           Opacity="0.6" FontSize="12" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="清空全部"
+                                Command="{Binding ClearAllSlotsCommand}"
+                                Padding="12,6"
+                                FontSize="12"
+                                VerticalAlignment="Center" />
+                    </Grid>
+
+                    <UniformGrid Columns="4" Margin="0,4,0,0">
+
+                        <!-- Slot 1 -->
+                        <Border x:Name="Slot1Border" Margin="4" CornerRadius="8"
+                                ClipToBounds="True" BorderThickness="2.5">
+                            <Button Classes="SlotButton"
+                                    Command="{Binding SelectSlotCommand}"
+                                    CommandParameter="1">
+                                <Border Padding="12,14"
+                                        Background="{DynamicResource SukiBackground}"
+                                        MinHeight="170">
+                                    <Panel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding TeamSlot1, Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="64" Height="64" CornerRadius="32"
+                                                    Background="{DynamicResource SukiCardBackground}"
+                                                    HorizontalAlignment="Center">
+                                                <TextBlock Text="1" FontSize="24" FontWeight="Bold" Opacity="0.3"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Text="1号位" FontSize="12" Opacity="0.4"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    Spacing="6"
+                                                    IsVisible="{Binding TeamSlot1, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Panel HorizontalAlignment="Center">
+                                                <Border Width="64" Height="64" CornerRadius="32" ClipToBounds="True">
+                                                    <Image Source="{Binding TeamSlot1.AvatarImage, FallbackValue={x:Null}}"
+                                                           Width="64" Height="64" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Background="#CC000000" CornerRadius="8" Padding="5,1"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Margin="0,-4,0,0">
+                                                    <TextBlock Text="1号位" FontSize="9" Foreground="White" />
+                                                </Border>
+                                            </Panel>
+                                            <TextBlock Text="{Binding TeamSlot1.Name, FallbackValue=''}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Content="移除" FontSize="11" Padding="10,3"
+                                                    HorizontalAlignment="Center"
+                                                    Command="{Binding ClearSlotCommand}" CommandParameter="1" />
+                                        </StackPanel>
+                                    </Panel>
+                                </Border>
+                            </Button>
+                        </Border>
+
+                        <!-- Slot 2 -->
+                        <Border x:Name="Slot2Border" Margin="4" CornerRadius="8"
+                                ClipToBounds="True" BorderThickness="2.5">
+                            <Button Classes="SlotButton"
+                                    Command="{Binding SelectSlotCommand}"
+                                    CommandParameter="2">
+                                <Border Padding="12,14"
+                                        Background="{DynamicResource SukiBackground}"
+                                        MinHeight="170">
+                                    <Panel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding TeamSlot2, Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="64" Height="64" CornerRadius="32"
+                                                    Background="{DynamicResource SukiCardBackground}"
+                                                    HorizontalAlignment="Center">
+                                                <TextBlock Text="2" FontSize="24" FontWeight="Bold" Opacity="0.3"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Text="2号位" FontSize="12" Opacity="0.4"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    Spacing="6"
+                                                    IsVisible="{Binding TeamSlot2, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Panel HorizontalAlignment="Center">
+                                                <Border Width="64" Height="64" CornerRadius="32" ClipToBounds="True">
+                                                    <Image Source="{Binding TeamSlot2.AvatarImage, FallbackValue={x:Null}}"
+                                                           Width="64" Height="64" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Background="#CC000000" CornerRadius="8" Padding="5,1"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Margin="0,-4,0,0">
+                                                    <TextBlock Text="2号位" FontSize="9" Foreground="White" />
+                                                </Border>
+                                            </Panel>
+                                            <TextBlock Text="{Binding TeamSlot2.Name, FallbackValue=''}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Content="移除" FontSize="11" Padding="10,3"
+                                                    HorizontalAlignment="Center"
+                                                    Command="{Binding ClearSlotCommand}" CommandParameter="2" />
+                                        </StackPanel>
+                                    </Panel>
+                                </Border>
+                            </Button>
+                        </Border>
+
+                        <!-- Slot 3 -->
+                        <Border x:Name="Slot3Border" Margin="4" CornerRadius="8"
+                                ClipToBounds="True" BorderThickness="2.5">
+                            <Button Classes="SlotButton"
+                                    Command="{Binding SelectSlotCommand}"
+                                    CommandParameter="3">
+                                <Border Padding="12,14"
+                                        Background="{DynamicResource SukiBackground}"
+                                        MinHeight="170">
+                                    <Panel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding TeamSlot3, Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="64" Height="64" CornerRadius="32"
+                                                    Background="{DynamicResource SukiCardBackground}"
+                                                    HorizontalAlignment="Center">
+                                                <TextBlock Text="3" FontSize="24" FontWeight="Bold" Opacity="0.3"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Text="3号位" FontSize="12" Opacity="0.4"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    Spacing="6"
+                                                    IsVisible="{Binding TeamSlot3, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Panel HorizontalAlignment="Center">
+                                                <Border Width="64" Height="64" CornerRadius="32" ClipToBounds="True">
+                                                    <Image Source="{Binding TeamSlot3.AvatarImage, FallbackValue={x:Null}}"
+                                                           Width="64" Height="64" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Background="#CC000000" CornerRadius="8" Padding="5,1"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Margin="0,-4,0,0">
+                                                    <TextBlock Text="3号位" FontSize="9" Foreground="White" />
+                                                </Border>
+                                            </Panel>
+                                            <TextBlock Text="{Binding TeamSlot3.Name, FallbackValue=''}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Content="移除" FontSize="11" Padding="10,3"
+                                                    HorizontalAlignment="Center"
+                                                    Command="{Binding ClearSlotCommand}" CommandParameter="3" />
+                                        </StackPanel>
+                                    </Panel>
+                                </Border>
+                            </Button>
+                        </Border>
+
+                        <!-- Slot 4 -->
+                        <Border x:Name="Slot4Border" Margin="4" CornerRadius="8"
+                                ClipToBounds="True" BorderThickness="2.5">
+                            <Button Classes="SlotButton"
+                                    Command="{Binding SelectSlotCommand}"
+                                    CommandParameter="4">
+                                <Border Padding="12,14"
+                                        Background="{DynamicResource SukiBackground}"
+                                        MinHeight="170">
+                                    <Panel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    IsVisible="{Binding TeamSlot4, Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Border Width="64" Height="64" CornerRadius="32"
+                                                    Background="{DynamicResource SukiCardBackground}"
+                                                    HorizontalAlignment="Center">
+                                                <TextBlock Text="4" FontSize="24" FontWeight="Bold" Opacity="0.3"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Text="4号位" FontSize="12" Opacity="0.4"
+                                                       HorizontalAlignment="Center" Margin="0,8,0,0" />
+                                        </StackPanel>
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    Spacing="6"
+                                                    IsVisible="{Binding TeamSlot4, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Panel HorizontalAlignment="Center">
+                                                <Border Width="64" Height="64" CornerRadius="32" ClipToBounds="True">
+                                                    <Image Source="{Binding TeamSlot4.AvatarImage, FallbackValue={x:Null}}"
+                                                           Width="64" Height="64" Stretch="UniformToFill" />
+                                                </Border>
+                                                <Border Background="#CC000000" CornerRadius="8" Padding="5,1"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                        Margin="0,-4,0,0">
+                                                    <TextBlock Text="4号位" FontSize="9" Foreground="White" />
+                                                </Border>
+                                            </Panel>
+                                            <TextBlock Text="{Binding TeamSlot4.Name, FallbackValue=''}"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Content="移除" FontSize="11" Padding="10,3"
+                                                    HorizontalAlignment="Center"
+                                                    Command="{Binding ClearSlotCommand}" CommandParameter="4" />
+                                        </StackPanel>
+                                    </Panel>
+                                </Border>
+                            </Button>
+                        </Border>
+
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- ==================== Character Selection Grid ==================== -->
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24,20">
+                <StackPanel Spacing="14">
+                    <StackPanel>
+                        <TextBlock Text="选择角色" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock Text="点击角色将其添加到当前选中的队伍槽位，已在队伍中的角色无法重复选择"
+                                   Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{Binding AllCharacters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:CharacterInfo">
+                                <Button Classes="CharCard"
+                                        Command="{Binding $parent[ItemsControl].((vm:TeamSetupViewModel)DataContext).SelectCharacterCommand}"
+                                        CommandParameter="{Binding}"
+                                        IsEnabled="{Binding !IsSelected}"
+                                        Margin="4">
+                                    <Border Width="100"
+                                            CornerRadius="8"
+                                            Background="{DynamicResource SukiBackground}"
+                                            Padding="8,10"
+                                            BorderThickness="2"
+                                            BorderBrush="{Binding Rarity, Converter={StaticResource RarityToBrush}}">
+                                        <Panel>
+                                            <StackPanel HorizontalAlignment="Center" Spacing="6">
+                                                <Border Width="56" Height="56"
+                                                        CornerRadius="28"
+                                                        ClipToBounds="True"
+                                                        HorizontalAlignment="Center"
+                                                        BorderThickness="2"
+                                                        BorderBrush="{Binding Rarity, Converter={StaticResource RarityToBrush}}">
+                                                    <Image Source="{Binding AvatarImage}"
+                                                           Width="56" Height="56"
+                                                           Stretch="UniformToFill" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="12"
+                                                           HorizontalAlignment="Center"
+                                                           TextAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           MaxWidth="88" />
+                                            </StackPanel>
+                                            <!-- "已选" overlay -->
+                                            <Border Background="#88000000"
+                                                    CornerRadius="6"
+                                                    IsVisible="{Binding IsSelected}"
+                                                    Margin="-8,-10">
+                                                <StackPanel VerticalAlignment="Center"
+                                                            HorizontalAlignment="Center">
+                                                    <PathIcon Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"
+                                                              Width="20" Height="20"
+                                                              Foreground="White" />
+                                                    <TextBlock Text="已选"
+                                                               Foreground="White"
+                                                               FontSize="12"
+                                                               FontWeight="Bold"
+                                                               HorizontalAlignment="Center"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Panel>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
