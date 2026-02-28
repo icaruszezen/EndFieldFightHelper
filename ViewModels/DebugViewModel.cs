@@ -84,7 +84,7 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedDebugWindowChanged(WindowInfo? value)
     {
-        if (!IsDebugEnabled || value == null) return;
+        if (!IsDebugEnabled || value == null || !_pipelineService.IsRunning) return;
 
         _pipelineService.TargetWindowHandle = value.Handle;
     }

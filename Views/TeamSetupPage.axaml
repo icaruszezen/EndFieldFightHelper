@@ -108,7 +108,7 @@
                                             <Panel>
                                                 <!-- Empty slot -->
                                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                            IsVisible="{Binding Character, Converter={x:Static ObjectConverters.IsNull}}">
+                                                            IsVisible="{Binding !HasCharacter}">
                                                     <Border Width="64" Height="64" CornerRadius="32"
                                                             Background="{DynamicResource SukiCardBackground}"
                                                             HorizontalAlignment="Center">
@@ -121,10 +121,10 @@
                                                 <!-- Filled slot -->
                                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
                                                             Spacing="6"
-                                                            IsVisible="{Binding Character, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                            IsVisible="{Binding HasCharacter}">
                                                     <Panel HorizontalAlignment="Center">
                                                         <Border Width="64" Height="64" CornerRadius="32" ClipToBounds="True">
-                                                            <Image Source="{Binding Character.AvatarImage, FallbackValue={x:Null}}"
+                                                            <Image Source="{Binding CharacterAvatarImage}"
                                                                    Width="64" Height="64" Stretch="UniformToFill" />
                                                         </Border>
                                                         <Border Background="#CC000000" CornerRadius="8" Padding="5,1"
@@ -133,7 +133,7 @@
                                                             <TextBlock Text="{Binding Label}" FontSize="9" Foreground="White" />
                                                         </Border>
                                                     </Panel>
-                                                    <TextBlock Text="{Binding Character.Name, FallbackValue=''}"
+                                                    <TextBlock Text="{Binding CharacterName}"
                                                                FontSize="13" FontWeight="SemiBold"
                                                                HorizontalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis" />

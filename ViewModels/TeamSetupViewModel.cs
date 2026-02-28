@@ -97,9 +97,9 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
             foreach (var c in characters)
                 AllCharacters.Add(c);
         }
-        catch (IOException) { }
-        catch (JsonException) { }
-        catch (KeyNotFoundException) { }
+        catch (Exception)
+        {
+        }
     }
 
     public CharacterInfo? GetSlot(int index) =>
@@ -198,5 +198,6 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
     {
         foreach (var c in AllCharacters)
             c.AvatarImage?.Dispose();
+        AllCharacters.Clear();
     }
 }

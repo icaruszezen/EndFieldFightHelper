@@ -1,3 +1,4 @@
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EndFieldFightHelper.Models;
 
@@ -14,4 +15,15 @@ public partial class TeamSlotViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isActive;
+
+    public bool HasCharacter => Character != null;
+    public Bitmap? CharacterAvatarImage => Character?.AvatarImage;
+    public string CharacterName => Character?.Name ?? "";
+
+    partial void OnCharacterChanged(CharacterInfo? value)
+    {
+        OnPropertyChanged(nameof(HasCharacter));
+        OnPropertyChanged(nameof(CharacterAvatarImage));
+        OnPropertyChanged(nameof(CharacterName));
+    }
 }

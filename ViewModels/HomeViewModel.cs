@@ -89,9 +89,6 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _debugViewModel = debugViewModel;
     }
 
-    private bool IsDebugWindowActive =>
-        _debugViewModel is { IsDebugEnabled: true, SelectedDebugWindow: not null };
-
     private IntPtr? GetEffectiveWindowHandle()
     {
         if (_debugViewModel is { IsDebugEnabled: true, SelectedDebugWindow: { } debugWindow })
@@ -207,27 +204,17 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     {
         if (!IsBattleAssistEnabled)
         {
-            IntPtr targetHandle;
+            if (!IsWindowBound && GetEffectiveWindowHandle() == null)
+                FindEndfieldWindow();
 
-            if (IsDebugWindowActive)
+            var targetHandle = GetEffectiveWindowHandle();
+            if (targetHandle == null)
             {
-                targetHandle = _debugViewModel!.SelectedDebugWindow!.Handle;
-            }
-            else
-            {
-                if (!IsWindowBound)
-                    FindEndfieldWindow();
-
-                if (EndfieldWindow == null)
-                {
-                    AddLog("启动失败：未绑定 Endfield 窗口");
-                    return;
-                }
-
-                targetHandle = EndfieldWindow.Handle;
+                AddLog("启动失败：未绑定窗口");
+                return;
             }
 
-            _pipelineService.Start(targetHandle, _captureMethod);
+            _pipelineService.Start(targetHandle.Value, _captureMethod);
 
             if (!_pipelineService.IsRunning)
             {
@@ -239,7 +226,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             AddLog("战斗辅助已开启");
 
             if (IsAutoDodgeEnabled)
-                _autoDodgeService.Start(targetHandle);
+                _autoDodgeService.Start(targetHandle.Value);
 
             if (IsBattleOverlayEnabled)
                 ApplyBattleOverlay();
