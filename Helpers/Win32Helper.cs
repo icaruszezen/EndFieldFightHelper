@@ -71,6 +71,20 @@ public static class Win32Helper
         return rect;
     }
 
+    public static RECT GetClientRectScreen(IntPtr hWnd)
+    {
+        GetClientRect(hWnd, out RECT clientRect);
+        POINT topLeft = new POINT { X = 0, Y = 0 };
+        ClientToScreen(hWnd, ref topLeft);
+        return new RECT
+        {
+            Left = topLeft.X,
+            Top = topLeft.Y,
+            Right = topLeft.X + clientRect.Right,
+            Bottom = topLeft.Y + clientRect.Bottom
+        };
+    }
+
     #endregion
 
     #region Monitor

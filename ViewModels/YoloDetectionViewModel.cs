@@ -73,7 +73,7 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
     private CaptureMethod _currentMethod = CaptureMethod.PrintWindow;
 
     private GpuDeviceInfo _inferenceDevice = GpuDeviceInfo.CpuDevice;
-    private float _confidence = 0.3f;
+    private float _confidence = 0.5f;
     private float _iou = 0.45f;
 
     public event Action<string>? ModelPathChanged;

@@ -24,7 +24,7 @@ public class YoloDetectionService : IDisposable
     public string? GpuFallbackReason { get; private set; }
 
     public void LoadModel(string modelPath, GpuDeviceInfo? device = null,
-        float confidence = 0.3f, float iou = 0.45f)
+        float confidence = 0.5f, float iou = 0.45f)
     {
         if (!File.Exists(modelPath))
             throw new FileNotFoundException("模型文件不存在", modelPath);

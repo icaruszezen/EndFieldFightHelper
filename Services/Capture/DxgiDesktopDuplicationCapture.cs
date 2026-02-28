@@ -23,7 +23,7 @@ public static class DxgiDesktopDuplicationCapture
 
     public static Bitmap? Capture(IntPtr hWnd)
     {
-        var windowRect = Win32Helper.GetWindowRectDwm(hWnd);
+        var windowRect = Win32Helper.GetClientRectScreen(hWnd);
         if (windowRect.Width <= 0 || windowRect.Height <= 0) return null;
 
         var hMonitor = Win32Helper.MonitorFromWindow(hWnd, Win32Helper.MONITOR_DEFAULTTONEAREST);

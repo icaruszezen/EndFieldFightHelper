@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
 using System.Threading;
+using EndFieldFightHelper.Helpers;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
@@ -210,7 +211,11 @@ public static class WindowsGraphicsCaptureCapture
 
                 try
                 {
-                    return ConvertFrameToBitmap(latestFrame);
+                    var windowRect = Win32Helper.GetWindowRectDwm(hWnd);
+                    var clientRect = Win32Helper.GetClientRectScreen(hWnd);
+                    int cropX = clientRect.Left - windowRect.Left;
+                    int cropY = clientRect.Top - windowRect.Top;
+                    return ConvertFrameToBitmap(latestFrame, cropX, cropY, clientRect.Width, clientRect.Height);
                 }
                 finally
                 {
@@ -310,7 +315,8 @@ public static class WindowsGraphicsCaptureCapture
         }
     }
 
-    private static Bitmap? ConvertFrameToBitmap(Direct3D11CaptureFrame frame)
+    private static Bitmap? ConvertFrameToBitmap(Direct3D11CaptureFrame frame,
+        int cropX, int cropY, int cropWidth, int cropHeight)
     {
         if (_cachedDevice == null || _cachedContext == null) return null;
 
@@ -320,8 +326,14 @@ public static class WindowsGraphicsCaptureCapture
         var texDesc = frameTexture.Description;
 
         var contentSize = frame.ContentSize;
-        int width = Math.Min(contentSize.Width, (int)texDesc.Width);
-        int height = Math.Min(contentSize.Height, (int)texDesc.Height);
+        int frameWidth = Math.Min(contentSize.Width, (int)texDesc.Width);
+        int frameHeight = Math.Min(contentSize.Height, (int)texDesc.Height);
+        if (frameWidth <= 0 || frameHeight <= 0) return null;
+
+        if (cropX < 0) cropX = 0;
+        if (cropY < 0) cropY = 0;
+        int width = Math.Min(cropWidth, frameWidth - cropX);
+        int height = Math.Min(cropHeight, frameHeight - cropY);
         if (width <= 0 || height <= 0) return null;
 
         EnsureStagingTexture(texDesc.Width, texDesc.Height, texDesc.Format);
@@ -349,7 +361,7 @@ public static class WindowsGraphicsCaptureCapture
                     unsafe
                     {
                         Buffer.MemoryCopy(
-                            (byte*)mapped.DataPointer + y * srcRowPitch,
+                            (byte*)mapped.DataPointer + (cropY + y) * srcRowPitch + cropX * bytesPerPixel,
                             (byte*)bitmapData.Scan0 + y * dstRowPitch,
                             dstRowPitch,
                             width * bytesPerPixel);

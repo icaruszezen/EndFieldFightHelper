@@ -8,7 +8,7 @@ public static class GdiPlusCapture
 {
     public static Bitmap? Capture(IntPtr hWnd)
     {
-        var rect = Win32Helper.GetWindowRectDwm(hWnd);
+        var rect = Win32Helper.GetClientRectScreen(hWnd);
         if (rect.Width <= 0 || rect.Height <= 0) return null;
 
         Bitmap? bitmap = null;

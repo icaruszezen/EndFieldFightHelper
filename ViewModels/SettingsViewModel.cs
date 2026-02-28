@@ -74,7 +74,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private GpuDeviceInfo _selectedInferenceDevice = GpuDeviceInfo.CpuDevice;
 
     [ObservableProperty]
-    private double _yoloConfidence = 0.3;
+    private double _yoloConfidence = 0.5;
 
     [ObservableProperty]
     private double _yoloIoU = 0.45;

@@ -49,6 +49,9 @@ Desktop.ini
 .env
 .env.*
 
+# Downloaded Endaxis resources (fetched via scripts/download-endaxis-public.ps1)
+Resources/public/
+
 # Publish artifacts
 publish/
 artifacts/

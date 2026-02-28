@@ -20,20 +20,21 @@ public static class PrintWindowCapture
 
     public static Bitmap? Capture(IntPtr hWnd)
     {
-        var rect = Win32Helper.GetWindowRectDwm(hWnd);
-        if (rect.Width <= 0 || rect.Height <= 0) return null;
+        Win32Helper.GetClientRect(hWnd, out var clientRect);
+        if (clientRect.Width <= 0 || clientRect.Height <= 0) return null;
 
         lock (_lock)
         {
             try
             {
-                EnsureResources(rect.Width, rect.Height);
+                EnsureResources(clientRect.Width, clientRect.Height);
                 if (_cachedMemDC == IntPtr.Zero) return null;
 
-                bool success = Win32Helper.PrintWindow(hWnd, _cachedMemDC, Win32Helper.PW_RENDERFULLCONTENT);
+                bool success = Win32Helper.PrintWindow(hWnd, _cachedMemDC,
+                    Win32Helper.PW_CLIENTONLY | Win32Helper.PW_RENDERFULLCONTENT);
                 if (!success)
                 {
-                    success = Win32Helper.PrintWindow(hWnd, _cachedMemDC, 0);
+                    success = Win32Helper.PrintWindow(hWnd, _cachedMemDC, Win32Helper.PW_CLIENTONLY);
                 }
 
                 if (!success) return null;
