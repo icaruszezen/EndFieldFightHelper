@@ -172,6 +172,12 @@
                                                  Classes="Accent"
                                                  Padding="16,8"
                                                  x:Name="DetectionTab" />
+                                    <RadioButton GroupName="DebugTab"
+                                                 IsCheckedChanged="OnInnerTabChecked"
+                                                 Content="角色识别管道"
+                                                 Classes="Accent"
+                                                 Padding="16,8"
+                                                 x:Name="CharacterTab" />
                                 </StackPanel>
 
                                 <Panel>
@@ -245,6 +251,30 @@
                                                    FontSize="12"
                                                    FontFamily="Consolas, Courier New, monospace"
                                                    Opacity="0.7" />
+                                    </StackPanel>
+
+                                    <StackPanel Spacing="12"
+                                                IsVisible="{Binding #CharacterTab.IsChecked}">
+                                        <TextBlock Text="角色槽位识别" FontSize="14" FontWeight="SemiBold" />
+                                        <Border Background="{DynamicResource SukiBackground}"
+                                                CornerRadius="4"
+                                                Height="360"
+                                                ClipToBounds="True">
+                                            <Panel>
+                                                <TextBlock Text="等待截图数据..."
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center"
+                                                           Opacity="0.3"
+                                                           IsVisible="{Binding ActiveCharPreviewImage, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                <Image Source="{Binding ActiveCharPreviewImage}"
+                                                       Stretch="Uniform"
+                                                       IsVisible="{Binding ActiveCharPreviewImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            </Panel>
+                                        </Border>
+                                        <TextBlock Text="{Binding ActiveCharacterText}"
+                                                   FontSize="12"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   Opacity="0.9" />
                                     </StackPanel>
                                 </Panel>
                             </DockPanel>

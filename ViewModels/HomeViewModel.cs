@@ -19,6 +19,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly OverlayService _overlayService;
     private readonly RecognitionPipelineService _pipelineService;
     private readonly AutoDodgeService _autoDodgeService;
+    private readonly ActiveCharacterService _activeCharacterService;
     private SettingsViewModel? _settingsViewModel;
     private OverlayViewModel? _overlayViewModel;
     private DebugViewModel? _debugViewModel;
@@ -63,14 +64,17 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public RecognitionPipelineService PipelineService => _pipelineService;
 
     public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService,
-        RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService)
+        RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService,
+        ActiveCharacterService activeCharacterService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
         _pipelineService = pipelineService;
         _autoDodgeService = autoDodgeService;
+        _activeCharacterService = activeCharacterService;
         _pipelineService.Log += msg => AddLog(msg);
         _autoDodgeService.Log += msg => AddLog(msg);
+        _activeCharacterService.Log += msg => AddLog(msg);
         FindEndfieldWindow();
     }
 
@@ -225,6 +229,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             IsBattleAssistEnabled = true;
             AddLog("战斗辅助已开启");
 
+            _activeCharacterService.Start();
+
             if (IsAutoDodgeEnabled)
                 _autoDodgeService.Start(targetHandle.Value);
 
@@ -233,6 +239,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
         else
         {
+            _activeCharacterService.Stop();
             _autoDodgeService.Stop();
             _pipelineService.Stop();
             AddLog("战斗辅助已关闭");
@@ -339,6 +346,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _activeCharacterService.Dispose();
         _autoDodgeService.Dispose();
         _pipelineService.Dispose();
         _previewTimer?.Dispose();

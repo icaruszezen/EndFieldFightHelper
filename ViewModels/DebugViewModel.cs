@@ -16,10 +16,12 @@ namespace EndFieldFightHelper.ViewModels;
 public partial class DebugViewModel : ViewModelBase, IDisposable
 {
     private readonly RecognitionPipelineService _pipelineService;
+    private readonly ActiveCharacterService _activeCharacterService;
     private Timer? _refreshTimer;
     private long _lastCaptureFrameId;
     private long _lastDetCaptureFrameId;
     private long _lastDetectionFrameId;
+    private long _lastCharCaptureFrameId;
     private DetectionResult[]? _cachedDetectionResults;
 
     [ObservableProperty]
@@ -41,10 +43,16 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
     private string _frameIdText = "";
 
     [ObservableProperty]
+    private string _activeCharacterText = "";
+
+    [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _capturePreviewImage;
 
     [ObservableProperty]
     private Avalonia.Media.Imaging.Bitmap? _detectionPreviewImage;
+
+    [ObservableProperty]
+    private Avalonia.Media.Imaging.Bitmap? _activeCharPreviewImage;
 
     [ObservableProperty]
     private ObservableCollection<DetectionResult> _detectionResults = new();
@@ -62,12 +70,14 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
 
     public DebugViewModel(
         RecognitionPipelineService pipelineService,
+        ActiveCharacterService activeCharacterService,
         ScreenshotViewModel screenshotViewModel,
         YoloDetectionViewModel yoloDetectionViewModel,
         InputTestViewModel inputTestViewModel,
         SettingsViewModel overlaySettingsViewModel)
     {
         _pipelineService = pipelineService;
+        _activeCharacterService = activeCharacterService;
         ScreenshotViewModel = screenshotViewModel;
         YoloDetectionViewModel = yoloDetectionViewModel;
         InputTestViewModel = inputTestViewModel;
@@ -97,6 +107,7 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
             _lastCaptureFrameId = 0;
             _lastDetCaptureFrameId = 0;
             _lastDetectionFrameId = 0;
+            _lastCharCaptureFrameId = 0;
             _cachedDetectionResults = null;
             RefreshAvailableWindows();
             _refreshTimer = new Timer(RefreshDebugData, null, 0, 200);
@@ -118,6 +129,7 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                 CaptureStatsText = "管道未运行";
                 DetectionStatsText = "管道未运行";
                 FrameIdText = "";
+                ActiveCharacterText = "";
                 DetectionResults.Clear();
 
                 var oldCap = CapturePreviewImage;
@@ -127,6 +139,10 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                 var oldDet = DetectionPreviewImage;
                 DetectionPreviewImage = null;
                 oldDet?.Dispose();
+
+                var oldChar = ActiveCharPreviewImage;
+                ActiveCharPreviewImage = null;
+                oldChar?.Dispose();
             });
         }
     }
@@ -142,6 +158,7 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                 CaptureStatsText = "管道未运行";
                 DetectionStatsText = "管道未运行";
                 FrameIdText = "";
+                ActiveCharacterText = "";
             });
             return;
         }
@@ -158,6 +175,11 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         var capText = $"截图耗时: {capMs}ms | 总帧数: {capCount}";
         var detText = $"推理耗时: {detMs}ms | 已识别: {detCount} 帧 | 跳过: {skipped} 帧 | 目标数: {detResults}";
         var idText = $"截图 FrameId: {capFrameId} | 识别 FrameId: {detFrameId}";
+
+        var (activeSlot, activeName) = _activeCharacterService.SharedActiveCharacter.GetCurrent();
+        var activeText = activeSlot > 0
+            ? $"当前主控: {activeName ?? "未知"} ({activeSlot}号位)"
+            : "当前主控: 未识别";
 
         var tabIndex = SelectedTabIndex;
 
@@ -216,11 +238,36 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
             }
         }
 
+        Avalonia.Media.Imaging.Bitmap? newCharBitmap = null;
+        if (tabIndex == 2)
+        {
+            var frame = ps.SharedCapture.CloneLatest(_lastCharCaptureFrameId);
+            if (frame != null)
+            {
+                _lastCharCaptureFrameId = frame.Value.frameId;
+                try
+                {
+                    var bitmap = frame.Value.image;
+                    DrawSlotRegions(bitmap);
+
+                    using var stream = new MemoryStream();
+                    bitmap.Save(stream, ImageFormat.Bmp);
+                    stream.Position = 0;
+                    newCharBitmap = new Avalonia.Media.Imaging.Bitmap(stream);
+                }
+                finally
+                {
+                    frame.Value.image.Dispose();
+                }
+            }
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             CaptureStatsText = capText;
             DetectionStatsText = detText;
             FrameIdText = idText;
+            ActiveCharacterText = activeText;
 
             if (newCapBitmap != null)
             {
@@ -241,6 +288,13 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                 DetectionResults.Clear();
                 foreach (var r in newResults)
                     DetectionResults.Add(r);
+            }
+
+            if (newCharBitmap != null)
+            {
+                var old = ActiveCharPreviewImage;
+                ActiveCharPreviewImage = newCharBitmap;
+                old?.Dispose();
             }
         });
     }
@@ -267,6 +321,51 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void DrawSlotRegions(Bitmap bitmap)
+    {
+        var acs = _activeCharacterService;
+        if (!acs.IsScaleInitialized) return;
+
+        var scaleX = acs.ScaleX;
+        var scaleY = acs.ScaleY;
+        var regions = ActiveCharacterService.GetSlotRegions();
+        var (currentSlot, _) = acs.SharedActiveCharacter.GetCurrent();
+
+        using var g = Graphics.FromImage(bitmap);
+        var fontSize = Math.Max(12f, bitmap.Height / 60f);
+        var penWidth = Math.Max(2f, bitmap.Height / 400f);
+        using var normalPen = new Pen(Color.FromArgb(200, 255, 255, 255), penWidth);
+        using var activePen = new Pen(Color.FromArgb(255, 255, 220, 0), penWidth * 1.5f);
+        using var font = new Font("Microsoft YaHei", fontSize, FontStyle.Bold);
+        using var normalBrush = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
+        using var activeBrush = new SolidBrush(Color.FromArgb(255, 255, 220, 0));
+        using var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
+
+        for (var i = 0; i < regions.Length; i++)
+        {
+            var (rx, ry, rw, rh) = regions[i];
+            var slotIndex = i + 1;
+            var isActive = slotIndex == currentSlot;
+
+            var ax = (int)(rx * scaleX);
+            var ay = (int)(ry * scaleY);
+            var aw = (int)(rw * scaleX);
+            var ah = (int)(rh * scaleY);
+
+            var pen = isActive ? activePen : normalPen;
+            g.DrawRectangle(pen, ax, ay, aw, ah);
+
+            var character = acs.GetSlotCharacter(slotIndex);
+            var label = $"{slotIndex}号位: {character?.Name ?? "未配置"}";
+            var textBrush = isActive ? activeBrush : normalBrush;
+
+            var size = g.MeasureString(label, font);
+            var labelY = Math.Max(ay - size.Height - 2, 0);
+            g.FillRectangle(bgBrush, ax, labelY, size.Width + 4, size.Height + 2);
+            g.DrawString(label, font, textBrush, ax + 2, labelY);
+        }
+    }
+
     public void Dispose()
     {
         _pipelineService.IsDebugOutputEnabled = false;
@@ -280,5 +379,9 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         var oldDet = DetectionPreviewImage;
         DetectionPreviewImage = null;
         oldDet?.Dispose();
+
+        var oldChar = ActiveCharPreviewImage;
+        ActiveCharPreviewImage = null;
+        oldChar?.Dispose();
     }
 }

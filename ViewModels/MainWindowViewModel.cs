@@ -13,6 +13,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private readonly YoloDetectionService _detectionService;
     private readonly OverlayService _overlayService;
+    private readonly ActiveCharacterService _activeCharacterService;
 
     public HomeViewModel HomeViewModel { get; }
     public ScreenshotViewModel ScreenshotViewModel { get; }
@@ -36,18 +37,24 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
+        TeamSetupViewModel = new TeamSetupViewModel();
+        _activeCharacterService = new ActiveCharacterService(
+            pipelineService.SharedDetection,
+            pipelineService.SharedCapture,
+            index => TeamSetupViewModel.GetSlot(index),
+            () => TeamSetupViewModel.TeamCount);
 
-        HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService, autoDodgeService);
+        HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
+            autoDodgeService, _activeCharacterService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
         InputTestViewModel = new InputTestViewModel(inputService);
         DebugViewModel = new DebugViewModel(
-            pipelineService, ScreenshotViewModel, YoloDetectionViewModel,
-            InputTestViewModel, SettingsViewModel);
-        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
-        TeamSetupViewModel = new TeamSetupViewModel();
+            pipelineService, _activeCharacterService, ScreenshotViewModel,
+            YoloDetectionViewModel, InputTestViewModel, SettingsViewModel);
+        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService, _activeCharacterService]);
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);

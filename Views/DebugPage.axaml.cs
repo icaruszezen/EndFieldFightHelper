@@ -14,6 +14,10 @@ public partial class DebugPage : UserControl
     private void OnInnerTabChecked(object? sender, RoutedEventArgs e)
     {
         if (DataContext is DebugViewModel vm && sender is RadioButton rb && rb.IsChecked == true)
-            vm.SelectedTabIndex = ReferenceEquals(rb, DetectionTab) ? 1 : 0;
+        {
+            if (ReferenceEquals(rb, CaptureTab)) vm.SelectedTabIndex = 0;
+            else if (ReferenceEquals(rb, DetectionTab)) vm.SelectedTabIndex = 1;
+            else if (ReferenceEquals(rb, CharacterTab)) vm.SelectedTabIndex = 2;
+        }
     }
 }
