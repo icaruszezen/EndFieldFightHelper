@@ -181,6 +181,15 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
             ? $"当前主控: {activeName ?? "未知"} ({activeSlot}号位)"
             : "当前主控: 未识别";
 
+        var (ultCharging, ultActiveCount) = _activeCharacterService.SharedUltimateCharge.GetCurrent();
+        if (ultActiveCount > 0)
+        {
+            var parts = new string[ultActiveCount];
+            for (var i = 0; i < ultActiveCount && i < SharedUltimateChargeState.MaxSlots; i++)
+                parts[i] = $"{i + 1}{(ultCharging[i] ? "充能" : "完成")}";
+            activeText += $" | 终结技: {string.Join(" ", parts)}";
+        }
+
         var tabIndex = SelectedTabIndex;
 
         Avalonia.Media.Imaging.Bitmap? newCapBitmap = null;
@@ -249,6 +258,7 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
                 {
                     var bitmap = frame.Value.image;
                     DrawSlotRegions(bitmap);
+                    DrawUltimateRegions(bitmap);
 
                     using var stream = new MemoryStream();
                     bitmap.Save(stream, ImageFormat.Bmp);
@@ -358,6 +368,73 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
             var character = acs.GetSlotCharacter(slotIndex);
             var label = $"{slotIndex}号位: {character?.Name ?? "未配置"}";
             var textBrush = isActive ? activeBrush : normalBrush;
+
+            var size = g.MeasureString(label, font);
+            var labelY = Math.Max(ay - size.Height - 2, 0);
+            g.FillRectangle(bgBrush, ax, labelY, size.Width + 4, size.Height + 2);
+            g.DrawString(label, font, textBrush, ax + 2, labelY);
+        }
+    }
+
+    private void DrawUltimateRegions(Bitmap bitmap)
+    {
+        var acs = _activeCharacterService;
+        if (!acs.IsScaleInitialized) return;
+
+        var scaleX = acs.ScaleX;
+        var scaleY = acs.ScaleY;
+        var regions = ActiveCharacterService.GetUltimateRegions();
+        var teamCount = Math.Min(acs.GetTeamCount(), SharedUltimateChargeState.MaxSlots);
+        var (charging, _) = acs.SharedUltimateCharge.GetCurrent();
+        var offset = SharedUltimateChargeState.MaxSlots - teamCount;
+
+        using var g = Graphics.FromImage(bitmap);
+        var fontSize = Math.Max(10f, bitmap.Height / 72f);
+        var penWidth = Math.Max(2f, bitmap.Height / 400f);
+        using var chargingPen = new Pen(Color.FromArgb(230, 255, 140, 0), penWidth * 1.5f);
+        using var chargedPen = new Pen(Color.FromArgb(230, 0, 200, 80), penWidth * 1.5f);
+        using var inactivePen = new Pen(Color.FromArgb(100, 128, 128, 128), penWidth) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+        using var font = new Font("Microsoft YaHei", fontSize, FontStyle.Bold);
+        using var chargingBrush = new SolidBrush(Color.FromArgb(230, 255, 140, 0));
+        using var chargedBrush = new SolidBrush(Color.FromArgb(230, 0, 200, 80));
+        using var inactiveBrush = new SolidBrush(Color.FromArgb(100, 128, 128, 128));
+        using var bgBrush = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
+
+        for (var i = 0; i < regions.Length; i++)
+        {
+            var (rx, ry, rw, rh) = regions[i];
+            var ax = (int)(rx * scaleX);
+            var ay = (int)(ry * scaleY);
+            var aw = (int)(rw * scaleX);
+            var ah = (int)(rh * scaleY);
+
+            var slot = i - offset + 1;
+            var isActive = slot >= 1 && slot <= teamCount;
+
+            Pen pen;
+            Brush textBrush;
+            string label;
+
+            if (!isActive)
+            {
+                pen = inactivePen;
+                textBrush = inactiveBrush;
+                label = "未激活";
+            }
+            else if (charging[slot - 1])
+            {
+                pen = chargingPen;
+                textBrush = chargingBrush;
+                label = $"{slot}号位 充能中";
+            }
+            else
+            {
+                pen = chargedPen;
+                textBrush = chargedBrush;
+                label = $"{slot}号位 充能完成";
+            }
+
+            g.DrawRectangle(pen, ax, ay, aw, ah);
 
             var size = g.MeasureString(label, font);
             var labelY = Math.Max(ay - size.Height - 2, 0);
