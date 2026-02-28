@@ -21,6 +21,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly AutoDodgeService _autoDodgeService;
     private SettingsViewModel? _settingsViewModel;
     private OverlayViewModel? _overlayViewModel;
+    private DebugViewModel? _debugViewModel;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
 
@@ -83,6 +84,21 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _overlayViewModel = overlayViewModel;
     }
 
+    public void SetDebugViewModel(DebugViewModel debugViewModel)
+    {
+        _debugViewModel = debugViewModel;
+    }
+
+    private bool IsDebugWindowActive =>
+        _debugViewModel is { IsDebugEnabled: true, SelectedDebugWindow: not null };
+
+    private IntPtr? GetEffectiveWindowHandle()
+    {
+        if (_debugViewModel is { IsDebugEnabled: true, SelectedDebugWindow: { } debugWindow })
+            return debugWindow.Handle;
+        return EndfieldWindow?.Handle;
+    }
+
     public void SetCaptureMethod(CaptureMethod method)
     {
         _captureMethod = method;
@@ -122,9 +138,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void TogglePreview()
     {
-        if (!IsWindowBound)
+        if (GetEffectiveWindowHandle() == null)
         {
-            AddLog("无法开始预览：未绑定 Endfield 窗口");
+            AddLog("无法开始预览：未绑定窗口");
             return;
         }
 
@@ -140,7 +156,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private void StartPreview()
     {
-        if (EndfieldWindow == null) return;
+        if (GetEffectiveWindowHandle() == null) return;
 
         IsPreviewRunning = true;
         AddLog("开始截图预览");
@@ -158,11 +174,12 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private void CapturePreviewFrame(object? state)
     {
-        if (EndfieldWindow == null || !IsPreviewRunning) return;
+        var hWnd = GetEffectiveWindowHandle();
+        if (hWnd == null || !IsPreviewRunning) return;
 
         try
         {
-            var bitmap = _screenshotService.CaptureWindow(EndfieldWindow, _captureMethod);
+            var bitmap = _screenshotService.CaptureWindow(hWnd.Value, _captureMethod);
             if (bitmap != null)
             {
                 using var stream = new MemoryStream();
@@ -190,16 +207,27 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     {
         if (!IsBattleAssistEnabled)
         {
-            if (!IsWindowBound)
-                FindEndfieldWindow();
+            IntPtr targetHandle;
 
-            if (EndfieldWindow == null)
+            if (IsDebugWindowActive)
             {
-                AddLog("启动失败：未绑定 Endfield 窗口");
-                return;
+                targetHandle = _debugViewModel!.SelectedDebugWindow!.Handle;
+            }
+            else
+            {
+                if (!IsWindowBound)
+                    FindEndfieldWindow();
+
+                if (EndfieldWindow == null)
+                {
+                    AddLog("启动失败：未绑定 Endfield 窗口");
+                    return;
+                }
+
+                targetHandle = EndfieldWindow.Handle;
             }
 
-            _pipelineService.Start(EndfieldWindow.Handle, _captureMethod);
+            _pipelineService.Start(targetHandle, _captureMethod);
 
             if (!_pipelineService.IsRunning)
             {
@@ -211,7 +239,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             AddLog("战斗辅助已开启");
 
             if (IsAutoDodgeEnabled)
-                _autoDodgeService.Start(EndfieldWindow.Handle);
+                _autoDodgeService.Start(targetHandle);
 
             if (IsBattleOverlayEnabled)
                 ApplyBattleOverlay();
@@ -235,8 +263,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         if (value)
         {
             AddLog("自动闪避已开启");
-            if (EndfieldWindow != null && _pipelineService.IsRunning)
-                _autoDodgeService.Start(EndfieldWindow.Handle);
+            var handle = _pipelineService.TargetWindowHandle;
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning)
+                _autoDodgeService.Start(handle);
         }
         else
         {
@@ -276,9 +305,10 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private void ApplyBattleOverlay()
     {
-        if (EndfieldWindow == null)
+        var hWnd = GetEffectiveWindowHandle();
+        if (hWnd == null)
         {
-            AddLog("无法显示叠加层：未绑定 Endfield 窗口");
+            AddLog("无法显示叠加层：未绑定窗口");
             IsBattleOverlayEnabled = false;
             return;
         }
@@ -294,7 +324,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
         else
         {
-            var rect = Win32Helper.GetWindowRectDwm(EndfieldWindow.Handle);
+            var rect = Win32Helper.GetWindowRectDwm(hWnd.Value);
             _overlayService.ApplySettings(true, rect.Left + 10, rect.Top + 50, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
         }
     }

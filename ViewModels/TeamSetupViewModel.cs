@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,56 +12,38 @@ using EndFieldFightHelper.Models;
 
 namespace EndFieldFightHelper.ViewModels;
 
-public partial class TeamSetupViewModel : ViewModelBase
+public partial class TeamSetupViewModel : ViewModelBase, IDisposable
 {
     private const int MaxSlots = 4;
 
     public ObservableCollection<CharacterInfo> AllCharacters { get; } = [];
 
-    [ObservableProperty]
-    private CharacterInfo? _teamSlot1;
-
-    [ObservableProperty]
-    private CharacterInfo? _teamSlot2;
-
-    [ObservableProperty]
-    private CharacterInfo? _teamSlot3;
-
-    [ObservableProperty]
-    private CharacterInfo? _teamSlot4;
+    public ObservableCollection<TeamSlotViewModel> TeamSlots { get; } =
+    [
+        new() { Index = 1, IsActive = true },
+        new() { Index = 2 },
+        new() { Index = 3 },
+        new() { Index = 4 },
+    ];
 
     [ObservableProperty]
     private int _selectedSlotIndex = 1;
-
-    [ObservableProperty]
-    private bool _isSlot1Active = true;
-
-    [ObservableProperty]
-    private bool _isSlot2Active;
-
-    [ObservableProperty]
-    private bool _isSlot3Active;
-
-    [ObservableProperty]
-    private bool _isSlot4Active;
 
     [ObservableProperty]
     private int _teamCount;
 
     public TeamSetupViewModel()
     {
-        LoadCharacters();
+        _ = LoadCharactersAsync();
     }
 
     partial void OnSelectedSlotIndexChanged(int value)
     {
-        IsSlot1Active = value == 1;
-        IsSlot2Active = value == 2;
-        IsSlot3Active = value == 3;
-        IsSlot4Active = value == 4;
+        foreach (var slot in TeamSlots)
+            slot.IsActive = slot.Index == value;
     }
 
-    private void LoadCharacters()
+    private async Task LoadCharactersAsync()
     {
         var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "public");
         var gamedataPath = Path.Combine(basePath, "gamedata.json");
@@ -70,69 +53,65 @@ public partial class TeamSetupViewModel : ViewModelBase
 
         try
         {
-            var json = File.ReadAllText(gamedataPath);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("characterRoster", out var roster))
-                return;
-
-            foreach (var entry in roster.EnumerateArray())
+            var characters = await Task.Run(() =>
             {
-                var id = entry.GetProperty("id").GetString() ?? "";
-                var name = entry.GetProperty("name").GetString() ?? "";
-                var rarity = entry.GetProperty("rarity").GetInt32();
-                var element = entry.GetProperty("element").GetString() ?? "";
-                var avatarRel = entry.GetProperty("avatar").GetString() ?? "";
+                var json = File.ReadAllText(gamedataPath);
+                using var doc = JsonDocument.Parse(json);
+                var root = doc.RootElement;
 
-                var avatarFullPath = Path.Combine(basePath,
-                    avatarRel.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                Bitmap? avatarBitmap = null;
-                if (File.Exists(avatarFullPath))
+                if (!root.TryGetProperty("characterRoster", out var roster))
+                    return new List<CharacterInfo>();
+
+                var list = new List<CharacterInfo>();
+                foreach (var entry in roster.EnumerateArray())
                 {
-                    try { avatarBitmap = new Bitmap(avatarFullPath); }
-                    catch { /* skip broken images */ }
+                    var id = entry.GetProperty("id").GetString() ?? "";
+                    var name = entry.GetProperty("name").GetString() ?? "";
+                    var rarity = entry.GetProperty("rarity").GetInt32();
+                    var element = entry.GetProperty("element").GetString() ?? "";
+                    var avatarRel = entry.GetProperty("avatar").GetString() ?? "";
+
+                    var avatarFullPath = Path.Combine(basePath,
+                        avatarRel.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    Bitmap? avatarBitmap = null;
+                    if (File.Exists(avatarFullPath))
+                    {
+                        try { avatarBitmap = new Bitmap(avatarFullPath); }
+                        catch (Exception) { }
+                    }
+
+                    list.Add(new CharacterInfo
+                    {
+                        Id = id,
+                        Name = name,
+                        Rarity = rarity,
+                        Element = element,
+                        AvatarRelativePath = avatarRel,
+                        AvatarImage = avatarBitmap,
+                    });
                 }
 
-                AllCharacters.Add(new CharacterInfo
-                {
-                    Id = id,
-                    Name = name,
-                    Rarity = rarity,
-                    Element = element,
-                    AvatarRelativePath = avatarRel,
-                    AvatarImage = avatarBitmap,
-                });
-            }
+                return list;
+            });
+
+            foreach (var c in characters)
+                AllCharacters.Add(c);
         }
-        catch
-        {
-            // ignore parse errors at startup
-        }
+        catch (IOException) { }
+        catch (JsonException) { }
+        catch (KeyNotFoundException) { }
     }
 
-    public CharacterInfo? GetSlot(int index) => index switch
-    {
-        1 => TeamSlot1,
-        2 => TeamSlot2,
-        3 => TeamSlot3,
-        4 => TeamSlot4,
-        _ => null,
-    };
+    public CharacterInfo? GetSlot(int index) =>
+        index is >= 1 and <= MaxSlots ? TeamSlots[index - 1].Character : null;
 
     private void SetSlot(int index, CharacterInfo? character)
     {
-        switch (index)
-        {
-            case 1: TeamSlot1 = character; break;
-            case 2: TeamSlot2 = character; break;
-            case 3: TeamSlot3 = character; break;
-            case 4: TeamSlot4 = character; break;
-        }
+        if (index is >= 1 and <= MaxSlots)
+            TeamSlots[index - 1].Character = character;
     }
 
-    private IEnumerable<CharacterInfo?> AllSlots =>
-        [TeamSlot1, TeamSlot2, TeamSlot3, TeamSlot4];
+    private IEnumerable<CharacterInfo?> AllSlots => TeamSlots.Select(s => s.Character);
 
     private bool IsCharacterInTeam(CharacterInfo character) =>
         AllSlots.Any(s => s != null && s.Id == character.Id);
@@ -213,5 +192,11 @@ public partial class TeamSetupViewModel : ViewModelBase
                 return;
             }
         }
+    }
+
+    public void Dispose()
+    {
+        foreach (var c in AllCharacters)
+            c.AvatarImage?.Dispose();
     }
 }

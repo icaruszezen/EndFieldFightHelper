@@ -102,6 +102,35 @@
 
                         <Border Background="{DynamicResource SukiCardBackground}"
                                 CornerRadius="8"
+                                Padding="24,16">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="截图目标窗口" FontSize="14" FontWeight="SemiBold" />
+                                <TextBlock Text="Debug 模式下可选择任意窗口作为截图管道目标，关闭 Debug 后自动恢复 Endfield 绑定"
+                                           Opacity="0.6" FontSize="12" />
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding AvailableWindows}"
+                                              SelectedItem="{Binding SelectedDebugWindow}"
+                                              PlaceholderText="选择目标窗口..."
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate x:DataType="models:WindowInfo">
+                                                <TextBlock Text="{Binding}" />
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <Button Grid.Column="1"
+                                            Command="{Binding RefreshAvailableWindowsCommand}"
+                                            Content="刷新"
+                                            Classes="Flat"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{DynamicResource SukiCardBackground}"
+                                CornerRadius="8"
                                 Padding="20">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="管道统计概览"

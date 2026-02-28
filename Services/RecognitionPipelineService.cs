@@ -20,6 +20,9 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
     public SharedDetectionState SharedDetection { get; } = new();
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
 
+    private IntPtr _originalHWnd;
+    private IntPtr _targetHWnd;
+
     private long _lastCaptureDurationMs;
     private long _lastDetectionDurationMs;
     private long _captureFrameCount;
@@ -35,6 +38,14 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
     public long CaptureFrameCount => Volatile.Read(ref _captureFrameCount);
     public long DetectionFrameCount => Volatile.Read(ref _detectionFrameCount);
     public long LastDetectionResultCount => Volatile.Read(ref _lastDetectionResultCount);
+
+    public IntPtr TargetWindowHandle
+    {
+        get => Volatile.Read(ref _targetHWnd);
+        set => Volatile.Write(ref _targetHWnd, value);
+    }
+
+    public IntPtr OriginalWindowHandle => Volatile.Read(ref _originalHWnd);
 
     public bool IsDebugOutputEnabled
     {
@@ -90,6 +101,8 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
             return;
         }
 
+        Volatile.Write(ref _originalHWnd, hWnd);
+        Volatile.Write(ref _targetHWnd, hWnd);
         Volatile.Write(ref _captureFrameCount, 0);
         Volatile.Write(ref _detectionFrameCount, 0);
         Volatile.Write(ref _lastCaptureDurationMs, 0);
@@ -100,7 +113,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
 
-        _captureTask = Task.Run(() => CaptureLoop(hWnd, method, token), token);
+        _captureTask = Task.Run(() => CaptureLoop(method, token), token);
         _detectionTask = Task.Run(() => DetectionLoop(token), token);
 
         Log?.Invoke("识别管道已启动");
@@ -131,17 +144,20 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         SharedCapture.Clear();
         SharedDetection.Clear();
         Volatile.Write(ref _lastPlottedImageBytes, null);
+        Volatile.Write(ref _targetHWnd, IntPtr.Zero);
+        Volatile.Write(ref _originalHWnd, IntPtr.Zero);
 
         Log?.Invoke("识别管道已停止");
     }
 
-    private async Task CaptureLoop(IntPtr hWnd, CaptureMethod method, CancellationToken token)
+    private async Task CaptureLoop(CaptureMethod method, CancellationToken token)
     {
         var sw = new Stopwatch();
         while (!token.IsCancellationRequested)
         {
             try
             {
+                var hWnd = Volatile.Read(ref _targetHWnd);
                 sw.Restart();
                 var bitmap = _screenshotService.CaptureWindow(hWnd, method);
                 sw.Stop();

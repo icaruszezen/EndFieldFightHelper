@@ -6,6 +6,8 @@ using System.IO;
 using System.Threading;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 
@@ -47,6 +49,12 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private ObservableCollection<DetectionResult> _detectionResults = new();
 
+    [ObservableProperty]
+    private ObservableCollection<WindowInfo> _availableWindows = new();
+
+    [ObservableProperty]
+    private WindowInfo? _selectedDebugWindow;
+
     public ScreenshotViewModel ScreenshotViewModel { get; }
     public YoloDetectionViewModel YoloDetectionViewModel { get; }
     public InputTestViewModel InputTestViewModel { get; }
@@ -66,6 +74,21 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
         OverlaySettingsViewModel = overlaySettingsViewModel;
     }
 
+    [RelayCommand]
+    private void RefreshAvailableWindows()
+    {
+        AvailableWindows.Clear();
+        foreach (var w in Win32Helper.GetVisibleWindows())
+            AvailableWindows.Add(w);
+    }
+
+    partial void OnSelectedDebugWindowChanged(WindowInfo? value)
+    {
+        if (!IsDebugEnabled || value == null) return;
+
+        _pipelineService.TargetWindowHandle = value.Handle;
+    }
+
     partial void OnIsDebugEnabledChanged(bool value)
     {
         if (value)
@@ -75,16 +98,23 @@ public partial class DebugViewModel : ViewModelBase, IDisposable
             _lastDetCaptureFrameId = 0;
             _lastDetectionFrameId = 0;
             _cachedDetectionResults = null;
+            RefreshAvailableWindows();
             _refreshTimer = new Timer(RefreshDebugData, null, 0, 200);
         }
         else
         {
+            if (_pipelineService.IsRunning)
+                _pipelineService.TargetWindowHandle = _pipelineService.OriginalWindowHandle;
+
             _pipelineService.IsDebugOutputEnabled = false;
             _refreshTimer?.Dispose();
             _refreshTimer = null;
 
             Dispatcher.UIThread.Post(() =>
             {
+                SelectedDebugWindow = null;
+                AvailableWindows.Clear();
+
                 CaptureStatsText = "管道未运行";
                 DetectionStatsText = "管道未运行";
                 FrameIdText = "";

@@ -51,6 +51,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);
+        HomeViewModel.SetDebugViewModel(DebugViewModel);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
         SettingsViewModel.CaptureMethodChanged += method =>
@@ -133,6 +134,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         HomeViewModel.Dispose();
         DebugViewModel.Dispose();
         TaskStatusViewModel.Dispose();
+        TeamSetupViewModel.Dispose();
         ScreenshotViewModel.Dispose();
         SettingsViewModel.Dispose();
         _detectionService.Dispose();
