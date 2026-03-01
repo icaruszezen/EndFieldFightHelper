@@ -63,7 +63,7 @@ When the user enables battle assist:
 1. `RecognitionPipelineService` + `BattleStateService` start immediately.
 2. `BattleStateService` monitors detection results for the `"当前角色"` label.
 3. On first detection → fires `BattleEntered` → `HomeViewModel` starts battle pipelines.
-4. When the label is lost for ≥10s → fires `BattleExited` → `HomeViewModel` stops battle pipelines.
+4. When the label is lost for ≥5s → fires `BattleExited` → `HomeViewModel` stops battle pipelines.
 5. Battle can re-enter if the label reappears.
 
 ## Key Files
@@ -163,7 +163,7 @@ event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel
 
 ```csharp
 event Action? BattleEntered;  // Fired when "当前角色" is first detected (entering battle)
-event Action? BattleExited;   // Fired when "当前角色" is lost for ≥10s (leaving battle)
+event Action? BattleExited;   // Fired when "当前角色" is lost for ≥5s (leaving battle)
 ```
 
 These events fire from the `BattleStateService` monitor thread. `HomeViewModel`

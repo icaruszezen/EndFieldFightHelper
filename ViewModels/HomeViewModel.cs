@@ -19,6 +19,10 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly OverlayService _overlayService;
     private readonly RecognitionPipelineService _pipelineService;
     private readonly AutoDodgeService _autoDodgeService;
+    private readonly AutoAttackService _autoAttackService;
+    private readonly AutoUltimateService _autoUltimateService;
+    private readonly AutoChainSkillService _autoChainSkillService;
+    private readonly AutoBattleSkillService _autoBattleSkillService;
     private readonly ActiveCharacterService _activeCharacterService;
     private readonly BattleStateService _battleStateService;
     private SettingsViewModel? _settingsViewModel;
@@ -59,6 +63,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private bool _isAutoUltimateEnabled;
 
     [ObservableProperty]
+    private bool _isAutoChainSkillEnabled;
+
+    [ObservableProperty]
     private bool _isBattleOverlayEnabled;
 
     public ObservableCollection<string> LogMessages { get; } = new();
@@ -67,16 +74,26 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService,
         RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService,
+        AutoAttackService autoAttackService, AutoUltimateService autoUltimateService,
+        AutoChainSkillService autoChainSkillService, AutoBattleSkillService autoBattleSkillService,
         ActiveCharacterService activeCharacterService, BattleStateService battleStateService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
         _pipelineService = pipelineService;
         _autoDodgeService = autoDodgeService;
+        _autoAttackService = autoAttackService;
+        _autoUltimateService = autoUltimateService;
+        _autoChainSkillService = autoChainSkillService;
+        _autoBattleSkillService = autoBattleSkillService;
         _activeCharacterService = activeCharacterService;
         _battleStateService = battleStateService;
         _pipelineService.Log += msg => AddLog(msg);
         _autoDodgeService.Log += msg => AddLog(msg);
+        _autoAttackService.Log += msg => AddLog(msg);
+        _autoUltimateService.Log += msg => AddLog(msg);
+        _autoChainSkillService.Log += msg => AddLog(msg);
+        _autoBattleSkillService.Log += msg => AddLog(msg);
         _activeCharacterService.Log += msg => AddLog(msg);
         _battleStateService.Log += msg => AddLog(msg);
         _battleStateService.BattleEntered += OnBattleEntered;
@@ -96,6 +113,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             IsAutoSkillEnabled = t.AutoSkill;
             IsAutoAttackEnabled = t.AutoAttack;
             IsAutoUltimateEnabled = t.AutoUltimate;
+            IsAutoChainSkillEnabled = t.AutoChainSkill;
             IsBattleOverlayEnabled = t.BattleOverlay;
         }
         finally
@@ -255,8 +273,13 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         else
         {
             _battleStateService.Stop();
+            // OnBattleExited is dispatched via Post, so explicit stops ensure synchronous shutdown
             _activeCharacterService.Stop();
             _autoDodgeService.Stop();
+            _autoAttackService.Stop();
+            _autoUltimateService.Stop();
+            _autoChainSkillService.Stop();
+            _autoBattleSkillService.Stop();
             _pipelineService.Stop();
             AddLog("战斗辅助已关闭");
             if (IsPreviewRunning) StopPreview();
@@ -270,26 +293,45 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     private void OnBattleEntered()
     {
-        _activeCharacterService.Start();
+        Dispatcher.UIThread.Post(() =>
+        {
+            _activeCharacterService.Start();
 
-        var handle = _pipelineService.TargetWindowHandle;
-        if (IsAutoDodgeEnabled && handle != IntPtr.Zero)
-            _autoDodgeService.Start(handle);
+            var handle = _pipelineService.TargetWindowHandle;
+            if (IsAutoDodgeEnabled && handle != IntPtr.Zero)
+                _autoDodgeService.Start(handle);
 
-        if (IsBattleOverlayEnabled)
-            Dispatcher.UIThread.Post(ApplyBattleOverlay);
+            if (IsAutoAttackEnabled && handle != IntPtr.Zero)
+                _autoAttackService.Start(handle);
+
+            if (IsAutoUltimateEnabled && handle != IntPtr.Zero)
+                _autoUltimateService.Start(handle);
+
+            if (IsAutoChainSkillEnabled && handle != IntPtr.Zero)
+                _autoChainSkillService.Start(handle);
+
+            if (IsAutoSkillEnabled && handle != IntPtr.Zero)
+                _autoBattleSkillService.Start(handle);
+
+            if (IsBattleOverlayEnabled)
+                ApplyBattleOverlay();
+        });
     }
 
     private void OnBattleExited()
     {
-        _autoDodgeService.Stop();
-        _activeCharacterService.Stop();
-
-        if (IsBattleOverlayEnabled)
+        Dispatcher.UIThread.Post(() =>
         {
-            Dispatcher.UIThread.Post(() =>
-                _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity));
-        }
+            _autoDodgeService.Stop();
+            _autoAttackService.Stop();
+            _autoUltimateService.Stop();
+            _autoChainSkillService.Stop();
+            _autoBattleSkillService.Stop();
+            _activeCharacterService.Stop();
+
+            if (IsBattleOverlayEnabled)
+                _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
+        });
     }
 
     partial void OnIsAutoDodgeEnabledChanged(bool value)
@@ -315,22 +357,81 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     partial void OnIsAutoSkillEnabledChanged(bool value)
     {
         if (_isLoadingToggles) return;
-        AddLog(value ? "自动技能已开启" : "自动技能已关闭");
+
+        if (value)
+        {
+            AddLog("自动战技已开启");
+            var handle = _pipelineService.TargetWindowHandle;
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive)
+                _autoBattleSkillService.Start(handle);
+        }
+        else
+        {
+            _autoBattleSkillService.Stop();
+            AddLog("自动战技已关闭");
+        }
+
         _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoSkillEnabled), value);
     }
 
     partial void OnIsAutoAttackEnabledChanged(bool value)
     {
         if (_isLoadingToggles) return;
-        AddLog(value ? "自动攻击已开启" : "自动攻击已关闭");
+
+        if (value)
+        {
+            AddLog("自动攻击已开启");
+            var handle = _pipelineService.TargetWindowHandle;
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive)
+                _autoAttackService.Start(handle);
+        }
+        else
+        {
+            _autoAttackService.Stop();
+            AddLog("自动攻击已关闭");
+        }
+
         _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoAttackEnabled), value);
     }
 
     partial void OnIsAutoUltimateEnabledChanged(bool value)
     {
         if (_isLoadingToggles) return;
-        AddLog(value ? "自动终结技已开启" : "自动终结技已关闭");
+
+        if (value)
+        {
+            AddLog("自动终结技已开启");
+            var handle = _pipelineService.TargetWindowHandle;
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive)
+                _autoUltimateService.Start(handle);
+        }
+        else
+        {
+            _autoUltimateService.Stop();
+            AddLog("自动终结技已关闭");
+        }
+
         _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoUltimateEnabled), value);
+    }
+
+    partial void OnIsAutoChainSkillEnabledChanged(bool value)
+    {
+        if (_isLoadingToggles) return;
+
+        if (value)
+        {
+            AddLog("自动连携技已开启");
+            var handle = _pipelineService.TargetWindowHandle;
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive)
+                _autoChainSkillService.Start(handle);
+        }
+        else
+        {
+            _autoChainSkillService.Stop();
+            AddLog("自动连携技已关闭");
+        }
+
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoChainSkillEnabled), value);
     }
 
     partial void OnIsBattleOverlayEnabledChanged(bool value)
@@ -402,6 +503,10 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     {
         _battleStateService.Dispose();
         _activeCharacterService.Dispose();
+        _autoUltimateService.Dispose();
+        _autoChainSkillService.Dispose();
+        _autoBattleSkillService.Dispose();
+        _autoAttackService.Dispose();
         _autoDodgeService.Dispose();
         _pipelineService.Dispose();
         _previewTimer?.Dispose();

@@ -36,6 +36,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _homeAutoSkill;
     private bool _homeAutoAttack;
     private bool _homeAutoUltimate;
+    private bool _homeAutoChainSkill;
     private bool _homeBattleOverlay;
 
     [ObservableProperty]
@@ -389,6 +390,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     _homeAutoSkill = settings.IsAutoSkillEnabled;
                     _homeAutoAttack = settings.IsAutoAttackEnabled;
                     _homeAutoUltimate = settings.IsAutoUltimateEnabled;
+                    _homeAutoChainSkill = settings.IsAutoChainSkillEnabled;
                     _homeBattleOverlay = settings.IsBattleOverlayEnabled;
                 }
             }
@@ -458,6 +460,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 IsAutoSkillEnabled = _homeAutoSkill,
                 IsAutoAttackEnabled = _homeAutoAttack,
                 IsAutoUltimateEnabled = _homeAutoUltimate,
+                IsAutoChainSkillEnabled = _homeAutoChainSkill,
                 IsBattleOverlayEnabled = _homeBattleOverlay,
             };
 
@@ -506,8 +509,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             OverlayOpacity);
     }
 
-    public (bool AutoDodge, bool AutoSkill, bool AutoAttack, bool AutoUltimate, bool BattleOverlay) GetHomeToggles()
-        => (_homeAutoDodge, _homeAutoSkill, _homeAutoAttack, _homeAutoUltimate, _homeBattleOverlay);
+    public (bool AutoDodge, bool AutoSkill, bool AutoAttack, bool AutoUltimate, bool AutoChainSkill, bool BattleOverlay) GetHomeToggles()
+        => (_homeAutoDodge, _homeAutoSkill, _homeAutoAttack, _homeAutoUltimate, _homeAutoChainSkill, _homeBattleOverlay);
 
     public void UpdateHomeToggle(string name, bool value)
     {
@@ -517,6 +520,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             case nameof(AppSettings.IsAutoSkillEnabled): _homeAutoSkill = value; break;
             case nameof(AppSettings.IsAutoAttackEnabled): _homeAutoAttack = value; break;
             case nameof(AppSettings.IsAutoUltimateEnabled): _homeAutoUltimate = value; break;
+            case nameof(AppSettings.IsAutoChainSkillEnabled): _homeAutoChainSkill = value; break;
             case nameof(AppSettings.IsBattleOverlayEnabled): _homeBattleOverlay = value; break;
             default: return;
         }

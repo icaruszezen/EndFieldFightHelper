@@ -37,6 +37,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
+        var autoAttackService = new AutoAttackService(inputService);
         var battleStateService = new BattleStateService(pipelineService.SharedDetection);
         TeamSetupViewModel = new TeamSetupViewModel();
         _activeCharacterService = new ActiveCharacterService(
@@ -44,9 +45,15 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService.SharedCapture,
             index => TeamSetupViewModel.GetSlot(index),
             () => TeamSetupViewModel.TeamCount);
+        var autoUltimateService = new AutoUltimateService(
+            _activeCharacterService.SharedUltimateCharge, inputService);
+        var autoChainSkillService = new AutoChainSkillService(pipelineService.SharedDetection, inputService);
+        var autoBattleSkillService = new AutoBattleSkillService(
+            pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount);
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
-            autoDodgeService, _activeCharacterService, battleStateService);
+            autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
+            autoBattleSkillService, _activeCharacterService, battleStateService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
@@ -55,7 +62,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         DebugViewModel = new DebugViewModel(
             pipelineService, _activeCharacterService, ScreenshotViewModel,
             YoloDetectionViewModel, InputTestViewModel, SettingsViewModel);
-        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, battleStateService, autoDodgeService, _activeCharacterService]);
+        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, _activeCharacterService]);
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);

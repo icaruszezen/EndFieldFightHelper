@@ -339,6 +339,10 @@ public static class Win32Helper
 
     public const uint MAPVK_VK_TO_VSC = 0;
 
+    public const int VK_1 = 0x31;
+    public const int VK_E = 0x45;
+    public const int VK_LSHIFT = 0xA0;
+
     public const uint WM_KEYDOWN = 0x0100;
     public const uint WM_KEYUP = 0x0101;
     public const uint WM_CHAR = 0x0102;

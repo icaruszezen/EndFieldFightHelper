@@ -27,5 +27,6 @@ public class AppSettings
     public bool IsAutoSkillEnabled { get; set; } = false;
     public bool IsAutoAttackEnabled { get; set; } = false;
     public bool IsAutoUltimateEnabled { get; set; } = false;
+    public bool IsAutoChainSkillEnabled { get; set; } = false;
     public bool IsBattleOverlayEnabled { get; set; } = false;
 }

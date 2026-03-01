@@ -165,11 +165,11 @@
 
                             <Separator Opacity="0.2" />
 
-                            <!-- 自动技能 -->
+                            <!-- 自动战技 -->
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="自动技能" FontWeight="SemiBold" />
-                                    <TextBlock Text="技能就绪时自动释放角色技能"
+                                    <TextBlock Text="自动战技" FontWeight="SemiBold" />
+                                    <TextBlock Text="技力充能完成时按配队顺序自动释放战技"
                                                Opacity="0.6" FontSize="11" />
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1"
@@ -202,6 +202,20 @@
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1"
                                               IsChecked="{Binding IsAutoUltimateEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
+                            <!-- 自动连携技 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动连携技" FontWeight="SemiBold" />
+                                    <TextBlock Text="检测到连携触发时自动按下E键"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoChainSkillEnabled}"
                                               VerticalAlignment="Center" />
                             </Grid>
 
