@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using EndFieldFightHelper.Helpers;
@@ -18,6 +19,7 @@ public sealed class AutoAttackService : IDisposable, IPipelineStatusProvider
     private volatile string? _lastErrorMessage;
 
     private const int AttackIntervalMs = 400;
+    private const int MiddleClickIntervalMs = 5000;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long AttackCount => Volatile.Read(ref _attackCount);
@@ -72,6 +74,8 @@ public sealed class AutoAttackService : IDisposable, IPipelineStatusProvider
 
     private async Task AttackLoop(IntPtr hWnd, CancellationToken token)
     {
+        var middleClickTimer = Stopwatch.StartNew();
+
         while (!token.IsCancellationRequested)
         {
             try
@@ -79,6 +83,12 @@ public sealed class AutoAttackService : IDisposable, IPipelineStatusProvider
                 Win32Helper.GetClientRect(hWnd, out var rect);
                 var centerX = rect.Right / 2;
                 var centerY = rect.Bottom / 2;
+
+                if (middleClickTimer.ElapsedMilliseconds >= MiddleClickIntervalMs)
+                {
+                    await _inputService.SendMouseClickAsync(hWnd, MouseButton.Middle, centerX, centerY);
+                    middleClickTimer.Restart();
+                }
 
                 await _inputService.SendMouseClickAsync(hWnd, MouseButton.Left, centerX, centerY);
                 Interlocked.Increment(ref _attackCount);
