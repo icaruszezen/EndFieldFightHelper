@@ -3,6 +3,7 @@ description: Recognition pipeline architecture, shared state conventions, and th
 globs:
   - Services/RecognitionPipelineService.cs
   - Services/AutoDodgeService.cs
+  - Services/BattleStateService.cs
   - Models/SharedCaptureFrame.cs
   - Models/SharedDetectionState.cs
   - Models/DetectionResult.cs
@@ -23,6 +24,8 @@ battle-assist toggle (`IsBattleAssistEnabled`) is turned ON. It consists of:
 
 1. **Capture Thread** — continuously screenshots the game window.
 2. **Detection Thread** — reads the latest screenshot, runs YOLO inference, publishes results.
+3. **Battle State Monitor** — reads detection results to determine battle entry/exit,
+   controls the lifecycle of downstream battle pipelines (auto-dodge, character recognition, etc.).
 
 Both threads communicate through **shared state objects** that any number of consumer
 threads (auto-dodge, auto-skill, debug UI, etc.) can read without coordination with
@@ -38,20 +41,37 @@ each other.
                                    ┌───────────────────┐◄──────────────────────────┘
                                    │SharedDetectionState│
                                    │  FrameId + Results │
-                                   └───────────────────┘
-                                          │ GetLatest()
-                                          ▼
-                                   ┌───────────────┐
-                                   │Consumer threads│
-                                   │(dodge, skill…) │
-                                   └───────────────┘
+                                   └────────┬──────────┘
+                                            │ GetLatest()
+                        ┌───────────────────┼───────────────────┐
+                        ▼                   ▼                   ▼
+                ┌────────────────┐  ┌───────────────┐   ┌───────────────┐
+                │BattleState     │  │Consumer threads│   │  (debug UI)   │
+                │Service         │  │(dodge, skill…) │   │               │
+                │(always running)│  │(battle only)   │   │               │
+                └───────┬────────┘  └───────────────┘   └───────────────┘
+                        │
+        BattleEntered / BattleExited events
+                        │
+                        ▼
+                HomeViewModel starts/stops battle pipelines
 ```
+
+### Battle State Lifecycle
+
+When the user enables battle assist:
+1. `RecognitionPipelineService` + `BattleStateService` start immediately.
+2. `BattleStateService` monitors detection results for the `"当前角色"` label.
+3. On first detection → fires `BattleEntered` → `HomeViewModel` starts battle pipelines.
+4. When the label is lost for ≥10s → fires `BattleExited` → `HomeViewModel` stops battle pipelines.
+5. Battle can re-enter if the label reappears.
 
 ## Key Files
 
 | File | Role |
 |------|------|
 | `Services/RecognitionPipelineService.cs` | Owns both loops, exposes shared state and stats |
+| `Services/BattleStateService.cs` | Monitors detection results for battle entry/exit, controls battle pipeline lifecycle |
 | `Services/AutoDodgeService.cs` | Consumes detection results, sends dodge input |
 | `Models/SharedCaptureFrame.cs` | Thread-safe latest-frame holder (Bitmap + FrameId) |
 | `Models/SharedDetectionState.cs` | Thread-safe latest-results holder (DetectionResult list + FrameId) |
@@ -133,11 +153,21 @@ void Dispose()
 
 ### Events
 
-Both `RecognitionPipelineService` and `AutoDodgeService` expose the same event:
+All pipeline services expose a `Log` event for status messages:
 
 ```csharp
 event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel.AddLog
 ```
+
+`BattleStateService` additionally exposes battle lifecycle events:
+
+```csharp
+event Action? BattleEntered;  // Fired when "当前角色" is first detected (entering battle)
+event Action? BattleExited;   // Fired when "当前角色" is lost for ≥10s (leaving battle)
+```
+
+These events fire from the `BattleStateService` monitor thread. `HomeViewModel`
+subscribes to them to start/stop downstream battle pipelines.
 
 ## CaptureLoop Behavior
 
@@ -218,7 +248,9 @@ public readonly record struct PipelineMetric(string Label, string Value);
 | Service | PipelineName | Metrics |
 |---------|-------------|---------|
 | `RecognitionPipelineService` | 识别管道 | 截图耗时, 推理耗时, 截图帧数, 识别帧数, 目标数 |
+| `BattleStateService` | 战斗状态 | 当前状态, 进入次数, 退出次数, 持续时间 |
 | `AutoDodgeService` | 自动闪避 | 闪避次数 |
+| `ActiveCharacterService` | 角色识别 | 当前主控, 位置, 终结技充能 |
 
 ### Registration
 
@@ -226,7 +258,7 @@ In `MainWindowViewModel` constructor, pass all providers as a list to
 `TaskStatusViewModel`:
 
 ```csharp
-TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService]);
+TaskStatusViewModel = new TaskStatusViewModel([pipelineService, battleStateService, autoDodgeService, _activeCharacterService]);
 ```
 
 When adding a new service, append it to this list. The Task Status page will
@@ -273,7 +305,10 @@ To add a new processing stage (e.g., a post-processing thread):
 
 ## Integration Points
 
-- **HomeViewModel**: Calls `Start` / `Stop` based on `IsBattleAssistEnabled` toggle.
+- **HomeViewModel**: Calls `Start` / `Stop` on `RecognitionPipelineService` and
+  `BattleStateService` based on `IsBattleAssistEnabled` toggle. Subscribes to
+  `BattleEntered` / `BattleExited` to start/stop battle pipelines
+  (`ActiveCharacterService`, `AutoDodgeService`, overlay).
 - **MainWindowViewModel**: Wires settings changes (FPS limit, capture method) to the service.
 - **DebugViewModel**: Polls stats and images via a 200ms timer when debug mode is ON.
 - **Consumer threads** (future): Read `SharedDetection.GetLatest()` to drive game actions.

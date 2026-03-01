@@ -20,6 +20,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly RecognitionPipelineService _pipelineService;
     private readonly AutoDodgeService _autoDodgeService;
     private readonly ActiveCharacterService _activeCharacterService;
+    private readonly BattleStateService _battleStateService;
     private SettingsViewModel? _settingsViewModel;
     private OverlayViewModel? _overlayViewModel;
     private DebugViewModel? _debugViewModel;
@@ -66,16 +67,20 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public HomeViewModel(IScreenshotService screenshotService, OverlayService overlayService,
         RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService,
-        ActiveCharacterService activeCharacterService)
+        ActiveCharacterService activeCharacterService, BattleStateService battleStateService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
         _pipelineService = pipelineService;
         _autoDodgeService = autoDodgeService;
         _activeCharacterService = activeCharacterService;
+        _battleStateService = battleStateService;
         _pipelineService.Log += msg => AddLog(msg);
         _autoDodgeService.Log += msg => AddLog(msg);
         _activeCharacterService.Log += msg => AddLog(msg);
+        _battleStateService.Log += msg => AddLog(msg);
+        _battleStateService.BattleEntered += OnBattleEntered;
+        _battleStateService.BattleExited += OnBattleExited;
         FindEndfieldWindow();
     }
 
@@ -243,18 +248,13 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             }
 
             IsBattleAssistEnabled = true;
-            AddLog("战斗辅助已开启");
+            AddLog("战斗辅助已开启，等待进入战斗...");
 
-            _activeCharacterService.Start();
-
-            if (IsAutoDodgeEnabled)
-                _autoDodgeService.Start(targetHandle.Value);
-
-            if (IsBattleOverlayEnabled)
-                ApplyBattleOverlay();
+            _battleStateService.Start();
         }
         else
         {
+            _battleStateService.Stop();
             _activeCharacterService.Stop();
             _autoDodgeService.Stop();
             _pipelineService.Stop();
@@ -268,6 +268,30 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
     }
 
+    private void OnBattleEntered()
+    {
+        _activeCharacterService.Start();
+
+        var handle = _pipelineService.TargetWindowHandle;
+        if (IsAutoDodgeEnabled && handle != IntPtr.Zero)
+            _autoDodgeService.Start(handle);
+
+        if (IsBattleOverlayEnabled)
+            Dispatcher.UIThread.Post(ApplyBattleOverlay);
+    }
+
+    private void OnBattleExited()
+    {
+        _autoDodgeService.Stop();
+        _activeCharacterService.Stop();
+
+        if (IsBattleOverlayEnabled)
+        {
+            Dispatcher.UIThread.Post(() =>
+                _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity));
+        }
+    }
+
     partial void OnIsAutoDodgeEnabledChanged(bool value)
     {
         if (_isLoadingToggles) return;
@@ -276,7 +300,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         {
             AddLog("自动闪避已开启");
             var handle = _pipelineService.TargetWindowHandle;
-            if (handle != IntPtr.Zero && _pipelineService.IsRunning)
+            if (handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive)
                 _autoDodgeService.Start(handle);
         }
         else
@@ -376,6 +400,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        _battleStateService.Dispose();
         _activeCharacterService.Dispose();
         _autoDodgeService.Dispose();
         _pipelineService.Dispose();

@@ -37,6 +37,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
+        var battleStateService = new BattleStateService(pipelineService.SharedDetection);
         TeamSetupViewModel = new TeamSetupViewModel();
         _activeCharacterService = new ActiveCharacterService(
             pipelineService.SharedDetection,
@@ -45,7 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             () => TeamSetupViewModel.TeamCount);
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
-            autoDodgeService, _activeCharacterService);
+            autoDodgeService, _activeCharacterService, battleStateService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
@@ -54,7 +55,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         DebugViewModel = new DebugViewModel(
             pipelineService, _activeCharacterService, ScreenshotViewModel,
             YoloDetectionViewModel, InputTestViewModel, SettingsViewModel);
-        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, autoDodgeService, _activeCharacterService]);
+        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, battleStateService, autoDodgeService, _activeCharacterService]);
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);
