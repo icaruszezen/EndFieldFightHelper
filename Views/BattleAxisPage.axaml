@@ -1,0 +1,273 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:EndFieldFightHelper.ViewModels"
+             xmlns:models="clr-namespace:EndFieldFightHelper.Models.BattleAxis"
+             xmlns:converters="clr-namespace:EndFieldFightHelper.Converters"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+             x:Class="EndFieldFightHelper.Views.BattleAxisPage"
+             x:DataType="vm:BattleAxisViewModel">
+
+    <UserControl.Resources>
+        <converters:ActionTypeToBrushConverter x:Key="ActionTypeToBrush" />
+        <converters:RarityToBrushConverter x:Key="RarityToBrush" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24,20">
+
+        <!-- Toolbar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8" Padding="20,14" Margin="0,0,0,12">
+            <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <Button Content="导入 JSON" Click="OnImportClick" Padding="14,8" />
+                    <Button Content="保存当前" Command="{Binding SavePresetCommand}"
+                            IsEnabled="{Binding HasData}" Padding="14,8" />
+                    <TextBlock Text="方案:" VerticalAlignment="Center" Opacity="0.7" />
+                    <ComboBox ItemsSource="{Binding Scenarios}"
+                              SelectedItem="{Binding SelectedScenario}"
+                              MinWidth="200"
+                              IsVisible="{Binding HasData}" />
+                    <TextBlock Text="{Binding StatusText}"
+                               VerticalAlignment="Center" Opacity="0.5"
+                               FontSize="13" Margin="8,0,0,0" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="12"
+                            IsVisible="{Binding SavedPresets.Count}">
+                    <TextBlock Text="已保存:" VerticalAlignment="Center" Opacity="0.7" />
+                    <ComboBox ItemsSource="{Binding SavedPresets}"
+                              SelectedItem="{Binding SelectedSavedPreset}"
+                              MinWidth="200">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:BattleAxisPreset">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="加载" Command="{Binding LoadSelectedPresetCommand}"
+                            IsEnabled="{Binding HasSelectedPreset}" Padding="14,8" />
+                    <Button Content="重命名" Command="{Binding BeginRenameCommand}"
+                            IsEnabled="{Binding HasSelectedPreset}" Padding="14,8"
+                            IsVisible="{Binding !IsRenaming}" />
+                    <StackPanel Orientation="Horizontal" Spacing="6"
+                                IsVisible="{Binding IsRenaming}">
+                        <TextBox Text="{Binding RenamingText}" MinWidth="150"
+                                 Padding="8,6" VerticalAlignment="Center" />
+                        <Button Content="确定" Command="{Binding ConfirmRenameCommand}" Padding="10,6" />
+                        <Button Content="取消" Command="{Binding CancelRenameCommand}" Padding="10,6" />
+                    </StackPanel>
+                    <Button Content="删除" Command="{Binding DeletePresetCommand}"
+                            IsEnabled="{Binding HasSelectedPreset}" Padding="14,8" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- Empty state -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8" Padding="40"
+                IsVisible="{Binding !HasData}"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <PathIcon Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L12,15H9V10H14V14L12,19H10Z"
+                          Width="48" Height="48" Opacity="0.3" />
+                <TextBlock Text="请导入 Endaxis JSON 文件以查看战斗轴"
+                           FontSize="16" Opacity="0.5"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="支持从 Endaxis 导出的 .json 文件"
+                           FontSize="12" Opacity="0.35"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- Timeline area -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource SukiCardBackground}"
+                CornerRadius="8" Padding="0"
+                IsVisible="{Binding HasData}">
+            <Grid ColumnDefinitions="Auto,*">
+
+                <!-- Left fixed column: character labels -->
+                <Border Grid.Column="0" Padding="12,0,8,0"
+                        BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+                        BorderThickness="0,0,1,0">
+                    <StackPanel>
+                        <Border Height="30" />
+                        <ItemsControl ItemsSource="{Binding Tracks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TrackDisplayModel">
+                                    <Border Height="48" Padding="0,4">
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    VerticalAlignment="Center">
+                                            <Border Width="3" Height="32" CornerRadius="2"
+                                                    Background="{Binding Rarity, Converter={StaticResource RarityToBrush}}" />
+                                            <Border Width="32" Height="32" CornerRadius="16"
+                                                    ClipToBounds="True"
+                                                    IsVisible="{Binding AvatarImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                                <Image Source="{Binding AvatarImage}"
+                                                       Width="32" Height="32"
+                                                       Stretch="UniformToFill" />
+                                            </Border>
+                                            <TextBlock Text="{Binding CharacterName}"
+                                                       VerticalAlignment="Center"
+                                                       FontSize="13" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Border Height="34" Padding="0,4"
+                                IsVisible="{Binding HasSwitchData}">
+                            <TextBlock Text="主控" VerticalAlignment="Center"
+                                       FontSize="12" FontWeight="SemiBold" Opacity="0.6"
+                                       Margin="6,0,0,0" />
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Right scrollable column: timeline -->
+                <ScrollViewer Grid.Column="1"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              Padding="0,0,0,4">
+                    <StackPanel Width="{Binding TimelineWidth}">
+
+                        <!-- Time axis -->
+                        <Border Height="30"
+                                BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+                                BorderThickness="0,0,0,1">
+                            <ItemsControl ItemsSource="{Binding TimelineTicks}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.Styles>
+                                    <Style Selector="ItemsControl > ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{ReflectionBinding LeftPx}" />
+                                        <Setter Property="Canvas.Bottom" Value="0" />
+                                    </Style>
+                                </ItemsControl.Styles>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:TimelineTick">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding Label}"
+                                                       FontSize="10" Opacity="0.5" />
+                                            <Border Width="1" Height="6"
+                                                    Background="{DynamicResource ThemeBorderLowBrush}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                        <!-- Character tracks -->
+                        <ItemsControl ItemsSource="{Binding Tracks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:TrackDisplayModel">
+                                    <Border Height="48"
+                                            BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+                                            BorderThickness="0,0,0,1">
+                                        <ItemsControl ItemsSource="{Binding Actions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <Canvas />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.Styles>
+                                                <Style Selector="ItemsControl > ContentPresenter">
+                                                    <Setter Property="Canvas.Left" Value="{ReflectionBinding LeftPx}" />
+                                                    <Setter Property="Canvas.Top" Value="5" />
+                                                </Style>
+                                            </ItemsControl.Styles>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ActionDisplayModel">
+                                                    <Border Width="{Binding WidthPx}" Height="38"
+                                                            Background="{Binding Type, Converter={StaticResource ActionTypeToBrush}}"
+                                                            CornerRadius="4" Padding="5,3"
+                                                            ToolTip.Tip="{Binding TooltipText}"
+                                                            ClipToBounds="True"
+                                                            Cursor="Hand">
+                                                        <StackPanel VerticalAlignment="Center" Spacing="0">
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontSize="11" Foreground="White"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding TypeLabel}"
+                                                                       FontSize="9" Foreground="White"
+                                                                       Opacity="0.75" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Active character bar -->
+                        <Border Height="34"
+                                IsVisible="{Binding HasSwitchData}"
+                                Padding="0,3">
+                            <ItemsControl ItemsSource="{Binding ActiveSegments}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.Styles>
+                                    <Style Selector="ItemsControl > ContentPresenter">
+                                        <Setter Property="Canvas.Left" Value="{ReflectionBinding LeftPx}" />
+                                        <Setter Property="Canvas.Top" Value="0" />
+                                    </Style>
+                                </ItemsControl.Styles>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ActiveCharacterSegment">
+                                        <Border Width="{Binding WidthPx}" Height="28"
+                                                Background="{Binding Color}"
+                                                CornerRadius="4" Padding="6,2"
+                                                ClipToBounds="True" Opacity="0.85">
+                                            <TextBlock Text="{Binding CharacterName}"
+                                                       Foreground="White" FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Legend -->
+        <Border Grid.Row="2" Padding="8,10,8,0" IsVisible="{Binding HasData}">
+            <StackPanel Orientation="Horizontal" Spacing="20">
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Border Width="14" Height="14" CornerRadius="3" Background="#78909C" />
+                    <TextBlock Text="重击" FontSize="12" VerticalAlignment="Center" Opacity="0.7" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Border Width="14" Height="14" CornerRadius="3" Background="#42A5F5" />
+                    <TextBlock Text="战技" FontSize="12" VerticalAlignment="Center" Opacity="0.7" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Border Width="14" Height="14" CornerRadius="3" Background="#66BB6A" />
+                    <TextBlock Text="连携技" FontSize="12" VerticalAlignment="Center" Opacity="0.7" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="5">
+                    <Border Width="14" Height="14" CornerRadius="3" Background="#FFA726" />
+                    <TextBlock Text="终结技" FontSize="12" VerticalAlignment="Center" Opacity="0.7" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>

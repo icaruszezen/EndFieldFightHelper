@@ -24,6 +24,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public DebugViewModel DebugViewModel { get; }
     public TaskStatusViewModel TaskStatusViewModel { get; }
     public TeamSetupViewModel TeamSetupViewModel { get; }
+    public BattleAxisViewModel BattleAxisViewModel { get; }
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
@@ -52,6 +53,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService.SharedDetection, inputService, isPausedProvider);
         var autoBattleSkillService = new AutoBattleSkillService(
             pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount, isPausedProvider);
+
+        BattleAxisViewModel = new BattleAxisViewModel();
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
@@ -149,6 +152,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         HomeViewModel.Dispose();
+        BattleAxisViewModel.Dispose();
         DebugViewModel.Dispose();
         TaskStatusViewModel.Dispose();
         TeamSetupViewModel.Dispose();
