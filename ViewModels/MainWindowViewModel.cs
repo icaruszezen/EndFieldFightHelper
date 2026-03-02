@@ -45,11 +45,13 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService.SharedCapture,
             index => TeamSetupViewModel.GetSlot(index),
             () => TeamSetupViewModel.TeamCount);
+        Func<bool> isPausedProvider = () => !battleStateService.AreBothMarkersVisible;
         var autoUltimateService = new AutoUltimateService(
-            _activeCharacterService.SharedUltimateCharge, inputService);
-        var autoChainSkillService = new AutoChainSkillService(pipelineService.SharedDetection, inputService);
+            _activeCharacterService.SharedUltimateCharge, inputService, isPausedProvider);
+        var autoChainSkillService = new AutoChainSkillService(
+            pipelineService.SharedDetection, inputService, isPausedProvider);
         var autoBattleSkillService = new AutoBattleSkillService(
-            pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount);
+            pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount, isPausedProvider);
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,

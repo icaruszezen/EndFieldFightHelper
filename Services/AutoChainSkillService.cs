@@ -11,6 +11,7 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
 {
     private readonly SharedDetectionState _sharedDetection;
     private readonly IInputService _inputService;
+    private readonly Func<bool> _isPausedProvider;
 
     private CancellationTokenSource? _cts;
     private Task? _chainSkillTask;
@@ -29,15 +30,18 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
 
     IReadOnlyList<PipelineMetric> IPipelineStatusProvider.GetMetrics()
     {
-        return [new("连携次数", ChainSkillCount.ToString())];
+        var paused = IsRunning && _isPausedProvider();
+        return [new("连携次数", ChainSkillCount.ToString()), new("状态", paused ? "已暂停" : IsRunning ? "运行中" : "-")];
     }
 
     public event Action<string>? Log;
 
-    public AutoChainSkillService(SharedDetectionState sharedDetection, IInputService inputService)
+    public AutoChainSkillService(SharedDetectionState sharedDetection, IInputService inputService,
+        Func<bool> isPausedProvider)
     {
         _sharedDetection = sharedDetection;
         _inputService = inputService;
+        _isPausedProvider = isPausedProvider;
     }
 
     public void Start(IntPtr hWnd)
@@ -82,6 +86,12 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
         {
             try
             {
+                if (_isPausedProvider())
+                {
+                    await Task.Delay(10, token);
+                    continue;
+                }
+
                 var latest = _sharedDetection.GetLatest(lastSeenId);
                 if (latest == null)
                 {

@@ -61,10 +61,14 @@ each other.
 
 When the user enables battle assist:
 1. `RecognitionPipelineService` + `BattleStateService` start immediately.
-2. `BattleStateService` monitors detection results for the `"当前角色"` label.
-3. On first detection → fires `BattleEntered` → `HomeViewModel` starts battle pipelines.
-4. When the label is lost for ≥5s → fires `BattleExited` → `HomeViewModel` stops battle pipelines.
-5. Battle can re-enter if the label reappears.
+2. `BattleStateService` monitors detection results for **both** `"当前角色"` and `"血条"` labels.
+3. When both labels are detected simultaneously → fires `BattleEntered` → `HomeViewModel` starts battle pipelines.
+4. When either label is lost → `AreBothMarkersVisible` becomes `false` immediately →
+   downstream pipelines (auto-skill, auto-ultimate, auto-chain-skill) that check
+   `isPausedProvider` will pause. Auto-attack and auto-dodge continue running.
+5. When both labels reappear → `AreBothMarkersVisible` becomes `true` → paused pipelines resume immediately.
+6. When both labels have been lost for ≥3s → fires `BattleExited` → `HomeViewModel` stops all battle pipelines.
+7. Battle can re-enter if both labels reappear after exit.
 
 ## Key Files
 
@@ -159,15 +163,22 @@ All pipeline services expose a `Log` event for status messages:
 event Action<string>? Log;  // Pipeline status messages, routed to HomeViewModel.AddLog
 ```
 
-`BattleStateService` additionally exposes battle lifecycle events:
+`BattleStateService` additionally exposes battle lifecycle events and marker visibility:
 
 ```csharp
-event Action? BattleEntered;  // Fired when "当前角色" is first detected (entering battle)
-event Action? BattleExited;   // Fired when "当前角色" is lost for ≥5s (leaving battle)
+event Action? BattleEntered;  // Fired when both "当前角色" and "血条" are first detected simultaneously
+event Action? BattleExited;   // Fired when markers are lost for ≥3s
+bool AreBothMarkersVisible { get; }  // True when both "当前角色" and "血条" are detected in the current frame
 ```
 
 These events fire from the `BattleStateService` monitor thread. `HomeViewModel`
 subscribes to them to start/stop downstream battle pipelines.
+
+`AreBothMarkersVisible` is a `volatile bool` updated every frame by the monitor loop.
+Downstream pipelines (`AutoBattleSkillService`, `AutoUltimateService`,
+`AutoChainSkillService`) receive a `Func<bool> isPausedProvider` that reads
+`!AreBothMarkersVisible`. When paused, these services skip actions but remain running;
+`AutoAttackService` and `AutoDodgeService` are not affected and continue operating.
 
 ## CaptureLoop Behavior
 
@@ -248,7 +259,7 @@ public readonly record struct PipelineMetric(string Label, string Value);
 | Service | PipelineName | Metrics |
 |---------|-------------|---------|
 | `RecognitionPipelineService` | 识别管道 | 截图耗时, 推理耗时, 截图帧数, 识别帧数, 目标数 |
-| `BattleStateService` | 战斗状态 | 当前状态, 进入次数, 退出次数, 持续时间 |
+| `BattleStateService` | 战斗状态 | 当前状态, 标记可见, 进入次数, 退出次数, 持续时间 |
 | `AutoDodgeService` | 自动闪避 | 闪避次数 |
 | `ActiveCharacterService` | 角色识别 | 当前主控, 位置, 终结技充能 |
 

@@ -11,6 +11,7 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
 {
     private readonly SharedUltimateChargeState _sharedUltCharge;
     private readonly IInputService _inputService;
+    private readonly Func<bool> _isPausedProvider;
 
     private CancellationTokenSource? _cts;
     private Task? _ultimateTask;
@@ -28,8 +29,12 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
 
     IReadOnlyList<PipelineMetric> IPipelineStatusProvider.GetMetrics()
     {
+        var paused = IsRunning && _isPausedProvider();
         var (_, activeCount) = _sharedUltCharge.GetCurrent();
-        var metrics = new List<PipelineMetric>();
+        var metrics = new List<PipelineMetric>
+        {
+            new("状态", paused ? "已暂停" : IsRunning ? "运行中" : "-")
+        };
         for (var i = 0; i < activeCount && i < SharedUltimateChargeState.MaxSlots; i++)
             metrics.Add(new($"{i + 1}号位释放", Volatile.Read(ref _ultimateCounts[i]).ToString()));
         return metrics;
@@ -37,10 +42,12 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
 
     public event Action<string>? Log;
 
-    public AutoUltimateService(SharedUltimateChargeState sharedUltCharge, IInputService inputService)
+    public AutoUltimateService(SharedUltimateChargeState sharedUltCharge, IInputService inputService,
+        Func<bool> isPausedProvider)
     {
         _sharedUltCharge = sharedUltCharge;
         _inputService = inputService;
+        _isPausedProvider = isPausedProvider;
     }
 
     public void Start(IntPtr hWnd)
@@ -86,6 +93,12 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
         {
             try
             {
+                if (_isPausedProvider())
+                {
+                    await Task.Delay(10, token);
+                    continue;
+                }
+
                 var latest = _sharedUltCharge.GetLatest(lastSeenId);
                 if (latest == null)
                 {

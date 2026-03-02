@@ -12,6 +12,7 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
     private readonly SharedDetectionState _sharedDetection;
     private readonly IInputService _inputService;
     private readonly Func<int> _teamCountProvider;
+    private readonly Func<bool> _isPausedProvider;
 
     private CancellationTokenSource? _cts;
     private Task? _battleSkillTask;
@@ -31,17 +32,19 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
 
     IReadOnlyList<PipelineMetric> IPipelineStatusProvider.GetMetrics()
     {
-        return [new("战技次数", BattleSkillCount.ToString())];
+        var paused = IsRunning && _isPausedProvider();
+        return [new("战技次数", BattleSkillCount.ToString()), new("状态", paused ? "已暂停" : IsRunning ? "运行中" : "-")];
     }
 
     public event Action<string>? Log;
 
     public AutoBattleSkillService(SharedDetectionState sharedDetection, IInputService inputService,
-        Func<int> teamCountProvider)
+        Func<int> teamCountProvider, Func<bool> isPausedProvider)
     {
         _sharedDetection = sharedDetection;
         _inputService = inputService;
         _teamCountProvider = teamCountProvider;
+        _isPausedProvider = isPausedProvider;
     }
 
     public void Start(IntPtr hWnd)
@@ -87,6 +90,12 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
         {
             try
             {
+                if (_isPausedProvider())
+                {
+                    await Task.Delay(10, token);
+                    continue;
+                }
+
                 var latest = _sharedDetection.GetLatest(lastSeenId);
                 if (latest == null)
                 {
