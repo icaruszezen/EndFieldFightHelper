@@ -9,12 +9,15 @@ namespace EndFieldFightHelper.Services;
 public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
 {
     private readonly SharedDetectionState _sharedDetection;
+    private readonly IInputService _inputService;
 
     private CancellationTokenSource? _cts;
     private Task? _monitorTask;
+    private IntPtr _hWnd;
 
     private volatile bool _isBattleActive;
     private volatile bool _areBothMarkersVisible;
+    private volatile bool _isScanning;
     private long _lastBothDetectedTick;
     private long _battleEnteredTick;
     private long _enterCount;
@@ -25,6 +28,10 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
     private const string HealthBarLabel = "血条";
     private const int BattleExitDelayMs = 3_000;
     private const int MarkerLostDebounceFrames = 5;
+    private const int CameraScanDeltaX = 400;
+    private const int ScanWaitMs = 200;
+    private const int ScanMoveDurationMs = 300;
+    private const int ScanMoveSteps = 15;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public bool IsBattleActive => _isBattleActive;
@@ -40,8 +47,14 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         var enters = Volatile.Read(ref _enterCount);
         var exits = Volatile.Read(ref _exitCount);
 
+        var scanning = _isScanning;
+
         string status;
-        if (!active)
+        if (scanning)
+        {
+            status = "视角扫描中";
+        }
+        else if (!active)
         {
             status = "非战斗";
         }
@@ -74,19 +87,23 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
 
     public event Action? BattleEntered;
     public event Action? BattleExited;
+    public event Action? CameraScanStarting;
     public event Action<string>? Log;
 
-    public BattleStateService(SharedDetectionState sharedDetection)
+    public BattleStateService(SharedDetectionState sharedDetection, IInputService inputService)
     {
         _sharedDetection = sharedDetection;
+        _inputService = inputService;
     }
 
-    public void Start()
+    public void Start(IntPtr hWnd)
     {
         if (IsRunning) return;
 
+        _hWnd = hWnd;
         _isBattleActive = false;
         _areBothMarkersVisible = false;
+        _isScanning = false;
         _lastErrorMessage = null;
         Volatile.Write(ref _lastBothDetectedTick, 0);
         Volatile.Write(ref _battleEnteredTick, 0);
@@ -199,11 +216,25 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                     var elapsed = Environment.TickCount64 - Volatile.Read(ref _lastBothDetectedTick);
                     if (elapsed >= BattleExitDelayMs)
                     {
-                        _isBattleActive = false;
-                        _areBothMarkersVisible = false;
-                        Interlocked.Increment(ref _exitCount);
-                        Log?.Invoke($"标记丢失超过 {BattleExitDelayMs / 1000}s，退出战斗状态");
-                        BattleExited?.Invoke();
+                        Log?.Invoke($"标记丢失超过 {BattleExitDelayMs / 1000}s，开始视角扫描...");
+                        CameraScanStarting?.Invoke();
+
+                        var foundEnemy = await PerformCameraScanAsync(token);
+                        if (foundEnemy)
+                        {
+                            Volatile.Write(ref _lastBothDetectedTick, Environment.TickCount64);
+                            wasBothVisible = false;
+                            Log?.Invoke("视角扫描发现敌人血条，继续战斗");
+                            BattleEntered?.Invoke();
+                        }
+                        else
+                        {
+                            _isBattleActive = false;
+                            _areBothMarkersVisible = false;
+                            Interlocked.Increment(ref _exitCount);
+                            Log?.Invoke("视角扫描未发现敌人，退出战斗状态");
+                            BattleExited?.Invoke();
+                        }
                     }
                 }
             }
@@ -218,6 +249,52 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                 await Task.Delay(100, token);
             }
         }
+    }
+
+    private async Task<bool> PerformCameraScanAsync(CancellationToken token)
+    {
+        _isScanning = true;
+        try
+        {
+            // Scan left
+            await _inputService.SimulateRelativeMouseMoveAsync(
+                -CameraScanDeltaX, 0, ScanMoveDurationMs, ScanMoveSteps);
+            await Task.Delay(ScanWaitMs, token);
+
+            if (CheckForHealthBar())
+                return true;
+
+            // Scan right (past center to the other side)
+            await _inputService.SimulateRelativeMouseMoveAsync(
+                CameraScanDeltaX * 2, 0, ScanMoveDurationMs, ScanMoveSteps);
+            await Task.Delay(ScanWaitMs, token);
+
+            if (CheckForHealthBar())
+                return true;
+
+            // Return to center
+            await _inputService.SimulateRelativeMouseMoveAsync(
+                -CameraScanDeltaX, 0, ScanMoveDurationMs, ScanMoveSteps);
+
+            return false;
+        }
+        finally
+        {
+            _isScanning = false;
+        }
+    }
+
+    private bool CheckForHealthBar()
+    {
+        var latest = _sharedDetection.GetLatest(0);
+        if (latest == null) return false;
+
+        foreach (var result in latest.Value.results)
+        {
+            if (result.Name.Contains(HealthBarLabel, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     public void Dispose()

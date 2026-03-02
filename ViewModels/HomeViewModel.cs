@@ -98,6 +98,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _battleStateService.Log += msg => AddLog(msg);
         _battleStateService.BattleEntered += OnBattleEntered;
         _battleStateService.BattleExited += OnBattleExited;
+        _battleStateService.CameraScanStarting += OnCameraScanStarting;
         FindEndfieldWindow();
     }
 
@@ -268,7 +269,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             IsBattleAssistEnabled = true;
             AddLog("战斗辅助已开启，等待进入战斗...");
 
-            _battleStateService.Start();
+            _battleStateService.Start(targetHandle.Value);
         }
         else
         {
@@ -331,6 +332,19 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
             if (IsBattleOverlayEnabled)
                 _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
+        });
+    }
+
+    private void OnCameraScanStarting()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            _autoDodgeService.Stop();
+            _autoAttackService.Stop();
+            _autoUltimateService.Stop();
+            _autoChainSkillService.Stop();
+            _autoBattleSkillService.Stop();
+            _activeCharacterService.Stop();
         });
     }
 

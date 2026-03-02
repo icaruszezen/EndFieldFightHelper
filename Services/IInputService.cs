@@ -19,4 +19,7 @@ public interface IInputService
     void SendMouseMove(IntPtr hWnd, int x, int y);
     Task SimulateMouseMoveAsync(IntPtr hWnd, int fromX, int fromY, int toX, int toY,
         int durationMs = 500, int steps = 20);
+
+    void SendRelativeMouseMove(int dx, int dy);
+    Task SimulateRelativeMouseMoveAsync(int dx, int dy, int durationMs = 300, int steps = 15);
 }

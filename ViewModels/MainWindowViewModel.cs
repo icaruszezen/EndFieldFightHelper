@@ -39,7 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
         var autoAttackService = new AutoAttackService(inputService);
-        var battleStateService = new BattleStateService(pipelineService.SharedDetection);
+        var battleStateService = new BattleStateService(pipelineService.SharedDetection, inputService);
         TeamSetupViewModel = new TeamSetupViewModel();
         _activeCharacterService = new ActiveCharacterService(
             pipelineService.SharedDetection,

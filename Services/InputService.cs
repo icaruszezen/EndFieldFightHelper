@@ -218,6 +218,39 @@ public class InputService : IInputService
         MoveMouseToClientPos(hWnd, x, y);
     }
 
+    public void SendRelativeMouseMove(int dx, int dy)
+    {
+        var input = new Win32Helper.INPUT
+        {
+            Type = Win32Helper.INPUT_MOUSE,
+            U = new Win32Helper.INPUTUNION
+            {
+                Mouse = new Win32Helper.MOUSEINPUT
+                {
+                    dx = dx,
+                    dy = dy,
+                    dwFlags = Win32Helper.MOUSEEVENTF_MOVE
+                }
+            }
+        };
+        Win32Helper.SendInput(1, new[] { input }, Marshal.SizeOf<Win32Helper.INPUT>());
+    }
+
+    public async Task SimulateRelativeMouseMoveAsync(int dx, int dy, int durationMs = 300, int steps = 15)
+    {
+        if (steps < 1) steps = 1;
+        var delayPerStep = durationMs / steps;
+
+        for (var i = 1; i <= steps; i++)
+        {
+            var stepDx = dx * i / steps - dx * (i - 1) / steps;
+            var stepDy = dy * i / steps - dy * (i - 1) / steps;
+            SendRelativeMouseMove(stepDx, stepDy);
+            if (i < steps)
+                await Task.Delay(delayPerStep);
+        }
+    }
+
     private static void MoveMouseToClientPos(IntPtr hWnd, int x, int y)
     {
         var pt = new Win32Helper.POINT { X = x, Y = y };
