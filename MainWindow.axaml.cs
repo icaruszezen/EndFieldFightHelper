@@ -4,8 +4,6 @@ using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using Avalonia.Win32;
-using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 using EndFieldFightHelper.ViewModels;
@@ -18,7 +16,6 @@ namespace EndFieldFightHelper;
 public partial class MainWindow : SukiWindow
 {
     private readonly MainWindowViewModel _viewModel;
-    private readonly HotkeyService _hotkeyService;
     private TrayIconService? _trayIconService;
     private bool _isClosingConfirmed;
     private bool _suppressSideMenuSelection;
@@ -33,10 +30,6 @@ public partial class MainWindow : SukiWindow
 
         ToastHost.Manager = ToastManager;
 
-        _hotkeyService = new HotkeyService();
-        _hotkeyService.ScreenshotHotkeyPressed += OnScreenshotHotkeyPressed;
-        _hotkeyService.RefreshHotkeyPressed += OnRefreshHotkeyPressed;
-
         Loaded += OnLoaded;
         Closed += OnClosed;
         Closing += OnClosing;
@@ -44,13 +37,6 @@ public partial class MainWindow : SukiWindow
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
-        var handle = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
-        if (handle != IntPtr.Zero)
-        {
-            _hotkeyService.Register(handle);
-            Win32Properties.AddWndProcHookCallback(this, WndProcHook);
-        }
-
         SideMenu.AddHandler(
             SelectingItemsControl.SelectionChangedEvent,
             OnSideMenuSelectionChanged,
@@ -108,19 +94,8 @@ public partial class MainWindow : SukiWindow
         }
     }
 
-    private IntPtr WndProcHook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == (uint)Win32Helper.WM_HOTKEY)
-        {
-            _hotkeyService.ProcessHotkey((int)wParam);
-            handled = true;
-        }
-        return IntPtr.Zero;
-    }
-
     private void OnClosed(object? sender, EventArgs e)
     {
-        _hotkeyService.Unregister();
         _viewModel.Dispose();
 
         if (Avalonia.Application.Current?.ApplicationLifetime
@@ -128,22 +103,6 @@ public partial class MainWindow : SukiWindow
         {
             desktop.Shutdown();
         }
-    }
-
-    private void OnScreenshotHotkeyPressed(object? sender, EventArgs e)
-    {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            _viewModel.ScreenshotViewModel.TriggerCapture();
-        });
-    }
-
-    private void OnRefreshHotkeyPressed(object? sender, EventArgs e)
-    {
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            _viewModel.ScreenshotViewModel.RefreshWindowsCommand.Execute(null);
-        });
     }
 
     private async void OnClosing(object? sender, WindowClosingEventArgs e)

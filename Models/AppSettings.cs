@@ -4,8 +4,6 @@ public class AppSettings
 {
     public CaptureMethod DefaultCaptureMethod { get; set; } = CaptureMethod.PrintWindow;
     public bool IsDarkTheme { get; set; } = false;
-    public string ScreenshotHotkey { get; set; } = "Ctrl+Shift+S";
-    public string RefreshHotkey { get; set; } = "Ctrl+Shift+R";
     public string ThemeColorName { get; set; } = "Orange";
     public bool OverlayEnabled { get; set; } = false;
     public bool OverlayClickThrough { get; set; } = true;
