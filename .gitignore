@@ -41,6 +41,7 @@ Thumbs.db
 Desktop.ini
 
 # Cursor local workspace data
+.cursor/
 .cursor/*
 !.cursor/rules/
 !.cursor/rules/**
@@ -50,8 +51,8 @@ Desktop.ini
 .env.*
 
 # Downloaded Endaxis resources (fetched via scripts/download-endaxis-public.ps1)
-#Resources/public/
-
+Resources/public/
+Resources/public/*
 # Publish artifacts
 publish/
 artifacts/
