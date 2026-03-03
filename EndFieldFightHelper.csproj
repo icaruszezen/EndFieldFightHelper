@@ -55,4 +55,13 @@
     <Move SourceFiles="@(_RootDlls)" DestinationFolder="$(TargetDir)libs\" />
     <RemoveDir Directories="$(TargetDir)runtimes" Condition="Exists('$(TargetDir)runtimes')" />
   </Target>
+
+  <Target Name="MovePublishDllsToLibs" AfterTargets="Publish">
+    <ItemGroup>
+      <_PublishRootDlls Include="$(PublishDir)*.dll;$(PublishDir)*.lib" Exclude="$(PublishDir)$(AssemblyName).dll" />
+    </ItemGroup>
+    <MakeDir Directories="$(PublishDir)libs" />
+    <Move SourceFiles="@(_PublishRootDlls)" DestinationFolder="$(PublishDir)libs\" />
+    <RemoveDir Directories="$(PublishDir)runtimes" Condition="Exists('$(PublishDir)runtimes')" />
+  </Target>
 </Project>

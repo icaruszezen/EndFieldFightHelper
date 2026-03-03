@@ -21,6 +21,9 @@ public class AppSettings
     public float YoloIoU { get; set; } = 0.45f;
     public int CaptureFrameRateLimit { get; set; } = 60;
 
+    public bool UseGitHubMirror { get; set; } = false;
+    public string GitHubMirrorUrl { get; set; } = "https://ghgo.xyz/";
+
     public bool IsAutoDodgeEnabled { get; set; } = false;
     public bool IsAutoSkillEnabled { get; set; } = false;
     public bool IsAutoAttackEnabled { get; set; } = false;

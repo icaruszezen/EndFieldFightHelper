@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 
 namespace EndFieldFightHelper.Services;
@@ -29,6 +30,8 @@ public class ResourceService : IDisposable
 
     private readonly HttpClient _httpClient;
 
+    public string? GitHubMirrorPrefix { get; set; }
+
     public string ResourceBasePath { get; } =
         Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "public");
 
@@ -39,6 +42,9 @@ public class ResourceService : IDisposable
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("EndFieldFightHelper/1.0");
     }
+
+    private string ApplyMirror(string url) =>
+        GitHubMirrorHelper.ApplyMirror(url, GitHubMirrorPrefix);
 
     public bool CheckResourcesExist()
     {
@@ -77,7 +83,7 @@ public class ResourceService : IDisposable
     {
         try
         {
-            var response = await _httpClient.GetAsync(CommitsApiUrl, ct);
+            var response = await _httpClient.GetAsync(ApplyMirror(CommitsApiUrl), ct);
             response.EnsureSuccessStatusCode();
 
             using var doc = await JsonDocument.ParseAsync(
@@ -122,7 +128,7 @@ public class ResourceService : IDisposable
             var (_, latestSha, _) = await CheckForUpdateAsync(ct);
 
             progress?.Report(("正在下载资源包...", 5));
-            using (var response = await _httpClient.GetAsync(ZipDownloadUrl,
+            using (var response = await _httpClient.GetAsync(ApplyMirror(ZipDownloadUrl),
                        HttpCompletionOption.ResponseHeadersRead, ct))
             {
                 response.EnsureSuccessStatusCode();

@@ -95,6 +95,18 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private FrameRateOption _selectedFrameRateLimit;
 
     [ObservableProperty]
+    private bool _useGitHubMirror;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCustomMirror))]
+    private GitHubMirrorOption? _selectedMirrorPreset;
+
+    [ObservableProperty]
+    private string _gitHubMirrorUrl = "https://ghgo.xyz/";
+
+    public bool IsCustomMirror => SelectedMirrorPreset?.IsCustom == true;
+
+    [ObservableProperty]
     private string _resourceStatus = "检测中...";
 
     [ObservableProperty]
@@ -139,6 +151,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         new(0, "无限制"),
     ];
 
+    public static IReadOnlyList<GitHubMirrorOption> MirrorPresets { get; } =
+    [
+        new("ghgo.xyz", "https://ghgo.xyz/"),
+        new("gh-proxy.com", "https://gh-proxy.com/"),
+        new("自定义", "", IsCustom: true),
+    ];
+
     public int CaptureFrameRateLimit => SelectedFrameRateLimit.Value;
 
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
@@ -179,6 +198,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _resourceService = resourceService;
         _appUpdateService = appUpdateService;
         _selectedFrameRateLimit = FrameRateLimitOptions[1]; // 60 FPS
+        _selectedMirrorPreset = MirrorPresets[0];
         _settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EndFieldFightHelper",
@@ -332,6 +352,36 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         if (!_isLoading) ScheduleSave();
     }
 
+    partial void OnUseGitHubMirrorChanged(bool value)
+    {
+        ApplyMirrorToServices();
+        if (!_isLoading) ScheduleSave();
+    }
+
+    partial void OnSelectedMirrorPresetChanged(GitHubMirrorOption? value)
+    {
+        if (value != null && !value.IsCustom)
+            GitHubMirrorUrl = value.Url;
+
+        ApplyMirrorToServices();
+        if (!_isLoading) ScheduleSave();
+    }
+
+    partial void OnGitHubMirrorUrlChanged(string value)
+    {
+        ApplyMirrorToServices();
+        if (!_isLoading) ScheduleSave();
+    }
+
+    private void ApplyMirrorToServices()
+    {
+        var prefix = UseGitHubMirror && !string.IsNullOrWhiteSpace(GitHubMirrorUrl)
+            ? GitHubMirrorUrl
+            : null;
+        _appUpdateService.GitHubMirrorPrefix = prefix;
+        _resourceService.GitHubMirrorPrefix = prefix;
+    }
+
     public void UpdateYoloModelPath(string path)
     {
         YoloModelPath = path;
@@ -434,6 +484,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                         .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
                     SelectedColorTheme = savedTheme ?? (AvailableColorThemes.Count > 0 ? AvailableColorThemes[0] : null);
 
+                    UseGitHubMirror = settings.UseGitHubMirror;
+                    GitHubMirrorUrl = settings.GitHubMirrorUrl;
+                    SelectedMirrorPreset = MirrorPresets.FirstOrDefault(p => !p.IsCustom && p.Url == settings.GitHubMirrorUrl)
+                                           ?? MirrorPresets[^1];
+
                     _homeAutoDodge = settings.IsAutoDodgeEnabled;
                     _homeAutoSkill = settings.IsAutoSkillEnabled;
                     _homeAutoAttack = settings.IsAutoAttackEnabled;
@@ -461,6 +516,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             var sukiTheme = SukiTheme.GetInstance();
             sukiTheme.ChangeBaseTheme(IsDarkTheme ? Avalonia.Styling.ThemeVariant.Dark : Avalonia.Styling.ThemeVariant.Light);
             ApplyOverlaySettings();
+            ApplyMirrorToServices();
         }
     }
 
@@ -504,6 +560,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 YoloConfidence = (float)YoloConfidence,
                 YoloIoU = (float)YoloIoU,
                 CaptureFrameRateLimit = SelectedFrameRateLimit.Value,
+                UseGitHubMirror = UseGitHubMirror,
+                GitHubMirrorUrl = GitHubMirrorUrl,
                 IsAutoDodgeEnabled = _homeAutoDodge,
                 IsAutoSkillEnabled = _homeAutoSkill,
                 IsAutoAttackEnabled = _homeAutoAttack,

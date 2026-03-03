@@ -107,6 +107,42 @@
                     CornerRadius="8"
                     Padding="24">
                 <StackPanel Spacing="16">
+                    <TextBlock Text="网络设置" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="配置 GitHub 加速站，加速软件更新和资源下载（适用于国内网络环境）"
+                               Opacity="0.7" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="启用 GitHub 加速" FontWeight="SemiBold" />
+                            <TextBlock Text="通过加速站代理所有 GitHub 请求" Opacity="0.7" FontSize="12" />
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UseGitHubMirror}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <StackPanel Spacing="12" IsVisible="{Binding UseGitHubMirror}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="加速站" FontWeight="SemiBold" />
+                            <TextBlock Text="选择预设加速站或输入自定义地址" Opacity="0.7" FontSize="12" />
+                            <ComboBox ItemsSource="{x:Static vm:SettingsViewModel.MirrorPresets}"
+                                      SelectedItem="{Binding SelectedMirrorPreset}"
+                                      HorizontalAlignment="Stretch" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="4" IsVisible="{Binding IsCustomMirror}">
+                            <TextBlock Text="自定义加速站地址" FontWeight="SemiBold" />
+                            <TextBlock Text="输入加速站的完整 URL 前缀，需同时支持 api.github.com 和 github.com 的代理" Opacity="0.7" FontSize="12" />
+                            <TextBox Text="{Binding GitHubMirrorUrl}"
+                                     Watermark="https://your-mirror.example.com/"
+                                     Margin="0,4,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
                     <TextBlock Text="资源管理" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock Text="游戏资源（角色头像、图标、数据等）来自 Endaxis 仓库，需要下载后才能使用排轴和队伍配置功能"
                                Opacity="0.7" TextWrapping="Wrap" />

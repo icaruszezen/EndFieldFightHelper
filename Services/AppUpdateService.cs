@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 
 namespace EndFieldFightHelper.Services;
@@ -25,11 +26,16 @@ public class AppUpdateService : IDisposable
     private readonly HttpClient _httpClient;
     private string? _pendingUpdateDir;
 
+    public string? GitHubMirrorPrefix { get; set; }
+
     public AppUpdateService()
     {
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("EndFieldFightHelper/1.0");
     }
+
+    private string ApplyMirror(string url) =>
+        GitHubMirrorHelper.ApplyMirror(url, GitHubMirrorPrefix);
 
     public static string GetCurrentVersion()
     {
@@ -42,7 +48,7 @@ public class AppUpdateService : IDisposable
     {
         try
         {
-            using var response = await _httpClient.GetAsync(ReleasesApiUrl, ct);
+            using var response = await _httpClient.GetAsync(ApplyMirror(ReleasesApiUrl), ct);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return (false, null, "暂无发布版本（仓库不存在、无 Release 或仓库为私有）");
@@ -100,7 +106,7 @@ public class AppUpdateService : IDisposable
                 var name = asset.GetProperty("name").GetString() ?? "";
                 if (string.Equals(name, ExpectedAssetName, StringComparison.OrdinalIgnoreCase))
                 {
-                    downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                    downloadUrl = ApplyMirror(asset.GetProperty("browser_download_url").GetString() ?? "");
                     fileSize = asset.GetProperty("size").GetInt64();
                     break;
                 }
