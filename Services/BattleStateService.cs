@@ -26,12 +26,12 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
 
     private const string ActiveCharLabel = "当前角色";
     private const string HealthBarLabel = "血条";
-    private const int BattleExitDelayMs = 3_000;
+    private const int BattleExitDelayMs = 2_000;
     private const int MarkerLostDebounceFrames = 5;
-    private const int CameraScanDeltaX = 400;
-    private const int ScanWaitMs = 200;
-    private const int ScanMoveDurationMs = 300;
-    private const int ScanMoveSteps = 15;
+    private const int CameraScanDeltaX = 1000;
+    private const int ScanWaitMs = 300;
+    private const int ScanMoveDurationMs = 1000;
+    private const int ScanMoveSteps = 40;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public bool IsBattleActive => _isBattleActive;
