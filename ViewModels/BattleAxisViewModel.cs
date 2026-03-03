@@ -112,6 +112,15 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
             ApplyScenario(_selectedScenario.Scenario);
     }
 
+    public async Task ReloadCharacterMapAsync()
+    {
+        foreach (var (_, _, _, avatar) in _characterMap.Values)
+            avatar?.Dispose();
+        _characterMap.Clear();
+
+        await LoadCharacterMapAsync();
+    }
+
     private async Task LoadCharacterMapAsync()
     {
         var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "public");

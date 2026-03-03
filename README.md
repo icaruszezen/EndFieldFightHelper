@@ -26,21 +26,13 @@ git clone https://github.com/<your-org>/EndFieldFightHelper.git
 cd EndFieldFightHelper
 ```
 
-## 下载游戏资源
+## 游戏资源
 
-构建前需先拉取 [Endaxis](https://github.com/Lieyuan621/Endaxis) 提供的公共资源（角色头像、图标、gamedata 等）。项目已提供自动化脚本：
+程序使用的游戏资源（角色头像、图标、gamedata 等）来自 [Endaxis](https://github.com/Lieyuan621/Endaxis) 仓库。
 
-```powershell
-.\scripts\download-endaxis-public.ps1
-```
+**首次运行时**，程序会自动检测资源是否存在并通过 Toast 通知提示下载。之后每次启动会自动检查是否有更新。你也可以在 **设置 → 资源管理** 中手动检查更新或重新下载。
 
-脚本会从 GitHub 下载 Endaxis 仓库的 `public/` 目录，并同步到 `Resources/public/`。如需指定其他目标路径：
-
-```powershell
-.\scripts\download-endaxis-public.ps1 -TargetDir "C:\custom\path"
-```
-
-> 如果网络不畅，也可手动下载 https://github.com/Lieyuan621/Endaxis 仓库，将其中的 `public/` 文件夹复制到 `Resources/public/`。
+> 开发阶段也可使用 `scripts/download-endaxis-public.ps1` 脚本手动下载资源到 `Resources/public/`。
 
 ## 构建
 
@@ -101,7 +93,7 @@ EndFieldFightHelper/
 ├── Converters/         # XAML 值转换器
 ├── Helpers/            # 工具类（Win32 互操作等）
 ├── Resources/
-│   └── public/         # 游戏资源（由脚本下载，不纳入版本控制）
+│   └── public/         # 游戏资源（运行时自动下载，不纳入版本控制）
 ├── scripts/            # 自动化脚本
 └── EndFieldFightHelper.csproj
 ```

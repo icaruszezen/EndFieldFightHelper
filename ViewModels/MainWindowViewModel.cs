@@ -14,6 +14,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly YoloDetectionService _detectionService;
     private readonly OverlayService _overlayService;
     private readonly ActiveCharacterService _activeCharacterService;
+    private readonly ResourceService _resourceService;
 
     public HomeViewModel HomeViewModel { get; }
     public ScreenshotViewModel ScreenshotViewModel { get; }
@@ -32,9 +33,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var detectionService = new YoloDetectionService();
         var inputService = new InputService();
         var overlayService = new OverlayService();
+        var resourceService = new ResourceService();
 
         _detectionService = detectionService;
         _overlayService = overlayService;
+        _resourceService = resourceService;
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
@@ -59,7 +62,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
             autoBattleSkillService, _activeCharacterService, battleStateService);
-        SettingsViewModel = new SettingsViewModel(toastManager, overlayService);
+        SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
@@ -73,6 +76,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);
         HomeViewModel.SetDebugViewModel(DebugViewModel);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
+
+        SettingsViewModel.ResourcesDownloaded += OnResourcesDownloaded;
 
         SettingsViewModel.CaptureMethodChanged += method =>
         {
@@ -149,8 +154,22 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         CurrentPage = HomeViewModel;
     }
 
+    private async void OnResourcesDownloaded()
+    {
+        try
+        {
+            await TeamSetupViewModel.ReloadCharactersAsync();
+            await BattleAxisViewModel.ReloadCharacterMapAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"资源重载失败: {ex.Message}");
+        }
+    }
+
     public void Dispose()
     {
+        SettingsViewModel.ResourcesDownloaded -= OnResourcesDownloaded;
         HomeViewModel.Dispose();
         BattleAxisViewModel.Dispose();
         DebugViewModel.Dispose();
@@ -160,5 +179,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         SettingsViewModel.Dispose();
         _detectionService.Dispose();
         _overlayService.Dispose();
+        _resourceService.Dispose();
     }
 }

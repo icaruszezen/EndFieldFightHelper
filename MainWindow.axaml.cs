@@ -35,13 +35,15 @@ public partial class MainWindow : SukiWindow
         Closing += OnClosing;
     }
 
-    private void OnLoaded(object? sender, RoutedEventArgs e)
+    private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
         SideMenu.AddHandler(
             SelectingItemsControl.SelectionChangedEvent,
             OnSideMenuSelectionChanged,
             Avalonia.Interactivity.RoutingStrategies.Bubble,
             true);
+
+        await _viewModel.SettingsViewModel.CheckResourcesOnStartupAsync();
     }
 
     private async void OnSideMenuSelectionChanged(object? sender, SelectionChangedEventArgs e)

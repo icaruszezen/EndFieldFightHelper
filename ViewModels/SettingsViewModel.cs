@@ -30,7 +30,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _isUpdatingFromDrag;
     private readonly OverlayService _overlayService;
     private readonly ISukiToastManager _toastManager;
+    private readonly ResourceService _resourceService;
     private CancellationTokenSource? _saveCts;
+    private CancellationTokenSource? _downloadCts;
 
     private bool _homeAutoDodge;
     private bool _homeAutoSkill;
@@ -89,6 +91,24 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private FrameRateOption _selectedFrameRateLimit;
 
+    [ObservableProperty]
+    private string _resourceStatus = "检测中...";
+
+    [ObservableProperty]
+    private bool _isResourceDownloading;
+
+    [ObservableProperty]
+    private double _downloadProgress;
+
+    [ObservableProperty]
+    private string _downloadProgressText = "";
+
+    [ObservableProperty]
+    private bool _hasResourceUpdate;
+
+    [ObservableProperty]
+    private bool _resourcesExist;
+
     public static IReadOnlyList<FrameRateOption> FrameRateLimitOptions { get; } =
     [
         new(30, "30 FPS"),
@@ -104,6 +124,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public event Action<CaptureMethod>? CaptureMethodChanged;
     public event Action? YoloSettingsChanged;
     public event Action<int>? CaptureFrameRateLimitChanged;
+    public event Action? ResourcesDownloaded;
 
     public string PrintWindowDescription =>
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
@@ -127,10 +148,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         "可以截取被遮挡的窗口内容，同时支持 DirectX/硬件加速渲染。" +
         "通过禁用黄色边框实现无感截图（需要 Windows 11），最低支持 Windows 10 1903。";
 
-    public SettingsViewModel(ISukiToastManager toastManager, OverlayService overlayService)
+    public SettingsViewModel(ISukiToastManager toastManager, OverlayService overlayService,
+        ResourceService resourceService)
     {
         _toastManager = toastManager;
         _overlayService = overlayService;
+        _resourceService = resourceService;
         _selectedFrameRateLimit = FrameRateLimitOptions[1]; // 60 FPS
         _settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -142,6 +165,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         RefreshInferenceDevices();
         InitializeColorThemes();
         LoadSettings();
+        RefreshResourceStatus();
     }
 
     private void OnOverlayPositionSizeFromWindow(double x, double y, double width, double height)
@@ -532,10 +556,135 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _overlayService.SetOverlayDataContext(overlayViewModel);
     }
 
+    public void RefreshResourceStatus()
+    {
+        ResourcesExist = _resourceService.CheckResourcesExist();
+        var meta = _resourceService.LoadMetadata();
+        if (!ResourcesExist)
+        {
+            ResourceStatus = "未下载 — 部分功能需要游戏资源才能使用";
+        }
+        else if (meta != null && meta.LastUpdated != default)
+        {
+            ResourceStatus = $"已安装 — 更新于 {meta.LastUpdated.ToLocalTime():yyyy-MM-dd HH:mm}";
+        }
+        else
+        {
+            ResourceStatus = "已安装";
+        }
+    }
+
+    [RelayCommand]
+    private async Task CheckResourceUpdateAsync()
+    {
+        if (IsResourceDownloading) return;
+
+        ResourceStatus = "正在检查更新...";
+        var (hasUpdate, _, message) = await _resourceService.CheckForUpdateAsync();
+        HasResourceUpdate = hasUpdate;
+
+        if (hasUpdate)
+        {
+            ResourceStatus = $"有新版本可用 — {message}";
+        }
+        else
+        {
+            RefreshResourceStatus();
+            if (!message.StartsWith("检查更新失败"))
+                ResourceStatus += "（已是最新）";
+            else
+                ResourceStatus = message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadResourcesAsync()
+    {
+        if (IsResourceDownloading) return;
+
+        _downloadCts?.Cancel();
+        _downloadCts = new CancellationTokenSource();
+        var ct = _downloadCts.Token;
+
+        IsResourceDownloading = true;
+        DownloadProgress = 0;
+        DownloadProgressText = "准备下载...";
+
+        try
+        {
+            var progress = new Progress<(string Status, double Percent)>(p =>
+            {
+                DownloadProgressText = p.Status;
+                DownloadProgress = p.Percent;
+            });
+
+            await _resourceService.DownloadResourcesAsync(progress, ct);
+
+            HasResourceUpdate = false;
+            RefreshResourceStatus();
+            ResourcesDownloaded?.Invoke();
+            _toastManager.CreateToast()
+                .WithTitle("资源下载完成")
+                .WithContent("游戏资源已成功下载并安装")
+                .Dismiss().After(TimeSpan.FromSeconds(4))
+                .Queue();
+        }
+        catch (OperationCanceledException)
+        {
+            DownloadProgressText = "下载已取消";
+        }
+        catch (Exception ex)
+        {
+            DownloadProgressText = $"下载失败: {ex.Message}";
+            _toastManager.CreateToast()
+                .WithTitle("资源下载失败")
+                .WithContent(ex.Message)
+                .Dismiss().After(TimeSpan.FromSeconds(6))
+                .Queue();
+        }
+        finally
+        {
+            IsResourceDownloading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelDownload()
+    {
+        _downloadCts?.Cancel();
+    }
+
+    public async Task CheckResourcesOnStartupAsync()
+    {
+        if (!_resourceService.CheckResourcesExist())
+        {
+            _toastManager.CreateToast()
+                .WithTitle("游戏资源未安装")
+                .WithContent("排轴和队伍配置功能需要游戏资源。请在设置页面中下载。")
+                .Dismiss().After(TimeSpan.FromSeconds(8))
+                .Queue();
+            return;
+        }
+
+        var (hasUpdate, _, message) = await _resourceService.CheckForUpdateAsync();
+        if (hasUpdate)
+        {
+            HasResourceUpdate = true;
+            ResourceStatus = $"有新版本可用 — {message}";
+            _toastManager.CreateToast()
+                .WithTitle("资源有更新")
+                .WithContent("检测到新版本的游戏资源，请在设置页面中更新。")
+                .Dismiss().After(TimeSpan.FromSeconds(6))
+                .Queue();
+        }
+    }
+
     public void Dispose()
     {
         _overlayService.OverlayPositionSizeChanged -= OnOverlayPositionSizeFromWindow;
         _saveCts?.Cancel();
         _saveCts?.Dispose();
+        _downloadCts?.Cancel();
+        _downloadCts?.Dispose();
     }
 }

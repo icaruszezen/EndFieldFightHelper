@@ -82,6 +82,34 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
         LoadPresets();
     }
 
+    public async Task ReloadCharactersAsync()
+    {
+        foreach (var c in AllCharacters)
+            c.AvatarImage?.Dispose();
+        AllCharacters.Clear();
+
+        await LoadCharactersAsync();
+
+        var savedSlotIds = CaptureCurrentSlotIds();
+        for (var i = 1; i <= MaxSlots; i++)
+            SetSlot(i, null);
+
+        for (var i = 0; i < MaxSlots && i < savedSlotIds.Count; i++)
+        {
+            var charId = savedSlotIds[i];
+            if (charId == null) continue;
+            var character = AllCharacters.FirstOrDefault(c => c.Id == charId);
+            if (character != null)
+            {
+                character.IsSelected = true;
+                SetSlot(i + 1, character);
+            }
+        }
+
+        RefreshSelectionFlags();
+        UpdateTeamCount();
+    }
+
     partial void OnSelectedSlotIndexChanged(int value)
     {
         foreach (var slot in TeamSlots)
