@@ -36,7 +36,23 @@
 
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x64' Or '$(RuntimeIdentifier)' == '' ">
     <None Include="$(PkgMicrosoft_AI_DirectML)\bin\x64-win\DirectML.dll"
-          Link="runtimes\win-x64\native\DirectML.dll"
+          Link="libs\DirectML.dll"
           CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="PlaceDllsInLibsFolder" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Update="@(ReferenceCopyLocalPaths)"
+        Condition="'%(Extension)' == '.dll'"
+        DestinationSubDirectory="libs\" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="MoveRemainingDllsToLibs" AfterTargets="Build">
+    <ItemGroup>
+      <_RootDlls Include="$(TargetDir)*.dll;$(TargetDir)*.lib" Exclude="$(TargetDir)$(AssemblyName).dll" />
+    </ItemGroup>
+    <Move SourceFiles="@(_RootDlls)" DestinationFolder="$(TargetDir)libs\" />
+    <RemoveDir Directories="$(TargetDir)runtimes" Condition="Exists('$(TargetDir)runtimes')" />
+  </Target>
 </Project>

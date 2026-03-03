@@ -31,8 +31,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private readonly OverlayService _overlayService;
     private readonly ISukiToastManager _toastManager;
     private readonly ResourceService _resourceService;
+    private readonly AppUpdateService _appUpdateService;
     private CancellationTokenSource? _saveCts;
     private CancellationTokenSource? _downloadCts;
+    private CancellationTokenSource? _appUpdateCts;
+    private AppUpdateInfo? _latestUpdateInfo;
 
     private bool _homeAutoDodge;
     private bool _homeAutoSkill;
@@ -109,6 +112,26 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool _resourcesExist;
 
+    public string CurrentVersion { get; } = AppUpdateService.GetCurrentVersion();
+
+    [ObservableProperty]
+    private string _appUpdateStatus = "";
+
+    [ObservableProperty]
+    private bool _hasAppUpdate;
+
+    [ObservableProperty]
+    private bool _isAppUpdateDownloading;
+
+    [ObservableProperty]
+    private double _appUpdateProgress;
+
+    [ObservableProperty]
+    private string _appUpdateProgressText = "";
+
+    [ObservableProperty]
+    private string _appUpdateReleaseNotes = "";
+
     public static IReadOnlyList<FrameRateOption> FrameRateLimitOptions { get; } =
     [
         new(30, "30 FPS"),
@@ -149,11 +172,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         "通过禁用黄色边框实现无感截图（需要 Windows 11），最低支持 Windows 10 1903。";
 
     public SettingsViewModel(ISukiToastManager toastManager, OverlayService overlayService,
-        ResourceService resourceService)
+        ResourceService resourceService, AppUpdateService appUpdateService)
     {
         _toastManager = toastManager;
         _overlayService = overlayService;
         _resourceService = resourceService;
+        _appUpdateService = appUpdateService;
         _selectedFrameRateLimit = FrameRateLimitOptions[1]; // 60 FPS
         _settingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -654,6 +678,104 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _downloadCts?.Cancel();
     }
 
+    [RelayCommand]
+    private async Task CheckAppUpdateAsync()
+    {
+        if (IsAppUpdateDownloading) return;
+
+        AppUpdateStatus = "正在检查更新...";
+        var (hasUpdate, info, message) = await _appUpdateService.CheckForUpdateAsync();
+        HasAppUpdate = hasUpdate;
+        _latestUpdateInfo = info;
+
+        if (hasUpdate && info != null)
+        {
+            AppUpdateStatus = $"发现新版本 v{info.Version}";
+            AppUpdateReleaseNotes = info.ReleaseNotes;
+        }
+        else
+        {
+            AppUpdateStatus = message;
+            AppUpdateReleaseNotes = "";
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadAppUpdateAsync()
+    {
+        if (IsAppUpdateDownloading || _latestUpdateInfo == null) return;
+
+        _appUpdateCts?.Cancel();
+        _appUpdateCts?.Dispose();
+        _appUpdateCts = new CancellationTokenSource();
+        var ct = _appUpdateCts.Token;
+
+        IsAppUpdateDownloading = true;
+        AppUpdateProgress = 0;
+        AppUpdateProgressText = "准备下载...";
+
+        try
+        {
+            var progress = new Progress<(string Status, double Percent)>(p =>
+            {
+                AppUpdateProgressText = p.Status;
+                AppUpdateProgress = p.Percent;
+            });
+
+            await _appUpdateService.DownloadUpdateAsync(_latestUpdateInfo, progress, ct);
+            _appUpdateService.ApplyUpdateAndRestart();
+        }
+        catch (OperationCanceledException)
+        {
+            AppUpdateProgressText = "下载已取消";
+            _appUpdateService.CleanupPendingUpdate();
+        }
+        catch (Exception ex)
+        {
+            AppUpdateProgressText = $"下载失败: {ex.Message}";
+            _appUpdateService.CleanupPendingUpdate();
+            _toastManager.CreateToast()
+                .WithTitle("更新下载失败")
+                .WithContent(ex.Message)
+                .Dismiss().After(TimeSpan.FromSeconds(6))
+                .Queue();
+        }
+        finally
+        {
+            IsAppUpdateDownloading = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelAppUpdate()
+    {
+        _appUpdateCts?.Cancel();
+    }
+
+    public async Task CheckAppUpdateOnStartupAsync()
+    {
+        try
+        {
+            var (hasUpdate, info, _) = await _appUpdateService.CheckForUpdateAsync();
+            if (hasUpdate && info != null)
+            {
+                HasAppUpdate = true;
+                _latestUpdateInfo = info;
+                AppUpdateStatus = $"发现新版本 v{info.Version}";
+                AppUpdateReleaseNotes = info.ReleaseNotes;
+                _toastManager.CreateToast()
+                    .WithTitle("软件有更新")
+                    .WithContent($"发现新版本 v{info.Version}，请在设置页面中更新。")
+                    .Dismiss().After(TimeSpan.FromSeconds(6))
+                    .Queue();
+            }
+        }
+        catch
+        {
+            // Silently ignore startup check failures
+        }
+    }
+
     public async Task CheckResourcesOnStartupAsync()
     {
         if (!_resourceService.CheckResourcesExist())
@@ -686,5 +808,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         _saveCts?.Dispose();
         _downloadCts?.Cancel();
         _downloadCts?.Dispose();
+        _appUpdateCts?.Cancel();
+        _appUpdateCts?.Dispose();
     }
 }

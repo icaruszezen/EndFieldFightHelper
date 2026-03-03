@@ -15,6 +15,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly OverlayService _overlayService;
     private readonly ActiveCharacterService _activeCharacterService;
     private readonly ResourceService _resourceService;
+    private readonly AppUpdateService _appUpdateService;
 
     public HomeViewModel HomeViewModel { get; }
     public ScreenshotViewModel ScreenshotViewModel { get; }
@@ -34,10 +35,12 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var inputService = new InputService();
         var overlayService = new OverlayService();
         var resourceService = new ResourceService();
+        var appUpdateService = new AppUpdateService();
 
         _detectionService = detectionService;
         _overlayService = overlayService;
         _resourceService = resourceService;
+        _appUpdateService = appUpdateService;
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
         var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
@@ -62,7 +65,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
             autoBattleSkillService, _activeCharacterService, battleStateService);
-        SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService);
+        SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService, appUpdateService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
@@ -180,5 +183,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _detectionService.Dispose();
         _overlayService.Dispose();
         _resourceService.Dispose();
+        _appUpdateService.Dispose();
     }
 }

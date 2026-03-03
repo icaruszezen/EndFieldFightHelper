@@ -57,6 +57,56 @@
                     Padding="24"
                     Margin="0,20,0,0">
                 <StackPanel Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="软件更新" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="{Binding CurrentVersion, StringFormat='v{0}'}"
+                                   Opacity="0.5" FontSize="14" VerticalAlignment="Center" />
+                    </Grid>
+                    <TextBlock Text="检查并下载 EndFieldFightHelper 的最新版本"
+                               Opacity="0.7" TextWrapping="Wrap" />
+
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="6"
+                            Padding="12,10"
+                            Margin="0,4,0,0"
+                            IsVisible="{Binding AppUpdateStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding AppUpdateStatus}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="6"
+                            Padding="12,10"
+                            Margin="0,2,0,0"
+                            IsVisible="{Binding AppUpdateReleaseNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="更新日志" FontWeight="SemiBold" FontSize="12" Opacity="0.6" />
+                            <TextBlock Text="{Binding AppUpdateReleaseNotes}" TextWrapping="Wrap"
+                                       FontSize="12" Opacity="0.8" MaxLines="8" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="8" IsVisible="{Binding !IsAppUpdateDownloading}" Orientation="Horizontal">
+                        <Button Content="检查更新"
+                                Command="{Binding CheckAppUpdateCommand}" />
+                        <Button Content="下载并安装更新"
+                                Command="{Binding DownloadAppUpdateCommand}"
+                                IsVisible="{Binding HasAppUpdate}" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="6" IsVisible="{Binding IsAppUpdateDownloading}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding AppUpdateProgressText}" Opacity="0.8" FontSize="12" />
+                            <Button Grid.Column="1" Content="取消" Command="{Binding CancelAppUpdateCommand}" Padding="8,2" FontSize="12" />
+                        </Grid>
+                        <ProgressBar Minimum="0" Maximum="100" Value="{Binding AppUpdateProgress}" Height="6" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{DynamicResource SukiCardBackground}"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="16">
                     <TextBlock Text="资源管理" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock Text="游戏资源（角色头像、图标、数据等）来自 Endaxis 仓库，需要下载后才能使用排轴和队伍配置功能"
                                Opacity="0.7" TextWrapping="Wrap" />

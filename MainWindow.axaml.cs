@@ -44,6 +44,7 @@ public partial class MainWindow : SukiWindow
             true);
 
         await _viewModel.SettingsViewModel.CheckResourcesOnStartupAsync();
+        await _viewModel.SettingsViewModel.CheckAppUpdateOnStartupAsync();
     }
 
     private async void OnSideMenuSelectionChanged(object? sender, SelectionChangedEventArgs e)
