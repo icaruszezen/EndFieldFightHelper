@@ -25,6 +25,8 @@
                     <Button Content="导入 JSON" Click="OnImportClick" Padding="14,8" />
                     <Button Content="保存当前" Command="{Binding SavePresetCommand}"
                             IsEnabled="{Binding HasData}" Padding="14,8" />
+                    <Button Content="应用到配队" Command="{Binding ApplyToTeamSetupCommand}"
+                            IsEnabled="{Binding CanApplyToTeamSetup}" Padding="14,8" />
                     <TextBlock Text="方案:" VerticalAlignment="Center" Opacity="0.7" />
                     <ComboBox ItemsSource="{Binding Scenarios}"
                               SelectedItem="{Binding SelectedScenario}"

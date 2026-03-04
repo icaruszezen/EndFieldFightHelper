@@ -79,6 +79,10 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private string _renamingText = "";
 
+    public Action<List<string?>>? ApplyToTeamSetupAction { get; }
+
+    public bool CanApplyToTeamSetup => HasData && Tracks.Count > 0 && ApplyToTeamSetupAction != null;
+
     public bool HasSelectedPreset => SelectedSavedPreset != null;
 
     partial void OnSelectedSavedPresetChanged(BattleAxisPreset? value)
@@ -86,8 +90,9 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSelectedPreset));
     }
 
-    public BattleAxisViewModel()
+    public BattleAxisViewModel(Action<List<string?>>? applyToTeamSetupAction = null)
     {
+        ApplyToTeamSetupAction = applyToTeamSetupAction;
         _presetsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EndFieldFightHelper",
@@ -96,6 +101,11 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
         _ = LoadCharacterMapAsync();
         LoadSavedPresets();
         RebuildTicks();
+    }
+
+    partial void OnTracksChanged(ObservableCollection<TrackDisplayModel> value)
+    {
+        OnPropertyChanged(nameof(CanApplyToTeamSetup));
     }
 
     partial void OnSelectedScenarioChanged(ScenarioItem? value)
@@ -392,6 +402,16 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
         var brush = CharacterPalette[index];
         _characterColorCache[characterId] = brush;
         return brush;
+    }
+
+    [RelayCommand]
+    private void ApplyToTeamSetup()
+    {
+        if (ApplyToTeamSetupAction == null || Tracks.Count == 0) return;
+
+        var ids = Tracks.Take(4).Select(t => (string?)t.CharacterId).ToList();
+        ApplyToTeamSetupAction(ids);
+        StatusText = $"已将 {ids.Count(id => id != null)} 个角色应用到配队";
     }
 
     [RelayCommand]

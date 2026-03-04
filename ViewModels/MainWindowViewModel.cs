@@ -60,7 +60,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var autoBattleSkillService = new AutoBattleSkillService(
             pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount, isPausedProvider);
 
-        BattleAxisViewModel = new BattleAxisViewModel();
+        BattleAxisViewModel = new BattleAxisViewModel(TeamSetupViewModel.ApplyCharacterOrder);
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,

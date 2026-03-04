@@ -311,6 +311,12 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
         ScheduleSave();
     }
 
+    public void ApplyCharacterOrder(List<string?> characterIds)
+    {
+        ApplySlotIds(characterIds);
+        OnTeamChanged();
+    }
+
     public void CompactTeam()
     {
         var characters = new List<CharacterInfo>();
