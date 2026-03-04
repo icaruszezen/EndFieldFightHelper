@@ -37,12 +37,16 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _appUpdateCts;
     private AppUpdateInfo? _latestUpdateInfo;
 
+    private volatile int _dodgeDelayMs = 150;
+    private volatile bool _dodgeSuppressDuringSkill;
+
     private bool _homeAutoDodge;
     private bool _homeAutoSkill;
     private bool _homeAutoAttack;
     private bool _homeAutoUltimate;
     private bool _homeAutoChainSkill;
     private bool _homeBattleOverlay;
+    private string _homeAutoSkillOrder = "";
     private OverlayContentSettings _overlayContentSettings = new();
 
     [ObservableProperty]
@@ -490,8 +494,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     SelectedMirrorPreset = MirrorPresets.FirstOrDefault(p => !p.IsCustom && p.Url == settings.GitHubMirrorUrl)
                                            ?? MirrorPresets[^1];
 
+                    _dodgeDelayMs = settings.DodgeDelayMs;
+                    _dodgeSuppressDuringSkill = settings.DodgeSuppressDuringSkill;
                     _homeAutoDodge = settings.IsAutoDodgeEnabled;
                     _homeAutoSkill = settings.IsAutoSkillEnabled;
+                    _homeAutoSkillOrder = settings.AutoSkillOrder ?? "";
                     _homeAutoAttack = settings.IsAutoAttackEnabled;
                     _homeAutoUltimate = settings.IsAutoUltimateEnabled;
                     _homeAutoChainSkill = settings.IsAutoChainSkillEnabled;
@@ -564,8 +571,11 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 CaptureFrameRateLimit = SelectedFrameRateLimit.Value,
                 UseGitHubMirror = UseGitHubMirror,
                 GitHubMirrorUrl = GitHubMirrorUrl,
+                DodgeDelayMs = _dodgeDelayMs,
+                DodgeSuppressDuringSkill = _dodgeSuppressDuringSkill,
                 IsAutoDodgeEnabled = _homeAutoDodge,
                 IsAutoSkillEnabled = _homeAutoSkill,
+                AutoSkillOrder = _homeAutoSkillOrder,
                 IsAutoAttackEnabled = _homeAutoAttack,
                 IsAutoUltimateEnabled = _homeAutoUltimate,
                 IsAutoChainSkillEnabled = _homeAutoChainSkill,
@@ -618,6 +628,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             OverlayOpacity);
     }
 
+    public int DodgeDelayMs => _dodgeDelayMs;
+    public bool DodgeSuppressDuringSkill => _dodgeSuppressDuringSkill;
+
+    public (int DelayMs, bool SuppressDuringSkill) GetDodgeSettings()
+        => (_dodgeDelayMs, _dodgeSuppressDuringSkill);
+
+    public void UpdateDodgeSettings(int delayMs, bool suppressDuringSkill)
+    {
+        _dodgeDelayMs = delayMs;
+        _dodgeSuppressDuringSkill = suppressDuringSkill;
+        ScheduleSave();
+    }
+
     public (bool AutoDodge, bool AutoSkill, bool AutoAttack, bool AutoUltimate, bool AutoChainSkill, bool BattleOverlay) GetHomeToggles()
         => (_homeAutoDodge, _homeAutoSkill, _homeAutoAttack, _homeAutoUltimate, _homeAutoChainSkill, _homeBattleOverlay);
 
@@ -633,6 +656,14 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             case nameof(AppSettings.IsBattleOverlayEnabled): _homeBattleOverlay = value; break;
             default: return;
         }
+        ScheduleSave();
+    }
+
+    public string GetAutoSkillOrder() => _homeAutoSkillOrder;
+
+    public void UpdateAutoSkillOrder(string order)
+    {
+        _homeAutoSkillOrder = order;
         ScheduleSave();
     }
 

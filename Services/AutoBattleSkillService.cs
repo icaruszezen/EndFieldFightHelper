@@ -18,14 +18,17 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
     private Task? _battleSkillTask;
 
     private long _battleSkillCount;
+    private long _lastSkillTimestamp;
     private volatile string? _lastErrorMessage;
     private int _currentSlotIndex;
+    private volatile int[]? _customSkillOrder;
 
     private const string SkillChargeLabel = "技力充能完成";
     private const int SkillCooldownMs = 500;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long BattleSkillCount => Volatile.Read(ref _battleSkillCount);
+    public long LastSkillTimestamp => Volatile.Read(ref _lastSkillTimestamp);
 
     string IPipelineStatusProvider.PipelineName => "自动战技";
     string? IPipelineStatusProvider.LastErrorMessage => _lastErrorMessage;
@@ -47,11 +50,18 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
         _isPausedProvider = isPausedProvider;
     }
 
+    public void SetSkillOrder(int[]? order)
+    {
+        _customSkillOrder = order;
+        _currentSlotIndex = 0;
+    }
+
     public void Start(IntPtr hWnd)
     {
         if (IsRunning) return;
 
         Volatile.Write(ref _battleSkillCount, 0);
+        Volatile.Write(ref _lastSkillTimestamp, 0);
         _lastErrorMessage = null;
         _currentSlotIndex = 0;
         _cts = new CancellationTokenSource();
@@ -84,7 +94,6 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
     private async Task BattleSkillLoop(IntPtr hWnd, CancellationToken token)
     {
         long lastSeenId = 0;
-        long lastSkillTimestamp = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -115,19 +124,30 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
                 if (chargeCount >= 1)
                 {
                     var now = Environment.TickCount64;
-                    if (now - lastSkillTimestamp >= SkillCooldownMs)
+                    if (now - Volatile.Read(ref _lastSkillTimestamp) >= SkillCooldownMs)
                     {
-                        var teamCount = _teamCountProvider();
-                        if (teamCount > 0)
+                        var order = _customSkillOrder;
+                        int slotIndex;
+                        if (order is { Length: > 0 })
                         {
+                            _currentSlotIndex = _currentSlotIndex % order.Length;
+                            slotIndex = order[_currentSlotIndex];
+                            _currentSlotIndex = (_currentSlotIndex + 1) % order.Length;
+                        }
+                        else
+                        {
+                            var teamCount = _teamCountProvider();
+                            if (teamCount <= 0) continue;
                             _currentSlotIndex = _currentSlotIndex % teamCount;
-                            var vk = Win32Helper.VK_1 + _currentSlotIndex;
-                            await _inputService.SendKeyPressAsync(hWnd, vk);
-                            lastSkillTimestamp = Environment.TickCount64;
-                            Interlocked.Increment(ref _battleSkillCount);
-                            Log?.Invoke($"技力充能完成，发送数字键 {_currentSlotIndex + 1}");
+                            slotIndex = _currentSlotIndex;
                             _currentSlotIndex = (_currentSlotIndex + 1) % teamCount;
                         }
+
+                        var vk = Win32Helper.VK_1 + slotIndex;
+                        await _inputService.SendKeyPressAsync(hWnd, vk);
+                        Volatile.Write(ref _lastSkillTimestamp, Environment.TickCount64);
+                        Interlocked.Increment(ref _battleSkillCount);
+                        Log?.Invoke($"技力充能完成，发送数字键 {slotIndex + 1}");
                     }
                 }
             }

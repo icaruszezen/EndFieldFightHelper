@@ -43,7 +43,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         _appUpdateService = appUpdateService;
 
         var pipelineService = new RecognitionPipelineService(screenshotService, detectionService);
-        var autoDodgeService = new AutoDodgeService(pipelineService.SharedDetection, inputService);
         var autoAttackService = new AutoAttackService(inputService);
         var battleStateService = new BattleStateService(pipelineService.SharedDetection, inputService);
         TeamSetupViewModel = new TeamSetupViewModel();
@@ -59,6 +58,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService.SharedDetection, inputService, isPausedProvider);
         var autoBattleSkillService = new AutoBattleSkillService(
             pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount, isPausedProvider);
+        var autoDodgeService = new AutoDodgeService(
+            pipelineService.SharedDetection, inputService,
+            () => SettingsViewModel!.DodgeDelayMs,
+            () => SettingsViewModel!.DodgeSuppressDuringSkill,
+            () => autoBattleSkillService.LastSkillTimestamp);
 
         BattleAxisViewModel = new BattleAxisViewModel(TeamSetupViewModel.ApplyCharacterOrder);
 

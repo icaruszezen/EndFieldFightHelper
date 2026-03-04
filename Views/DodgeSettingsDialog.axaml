@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.DodgeSettingsDialog"
+        Title="自动闪避设置"
+        Width="400" Height="340"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Border Background="{DynamicResource SukiCardBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource SukiControlBorderBrush}"
+            BorderThickness="1"
+            Padding="28">
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,20">
+                <TextBlock Text="自动闪避设置" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="调整闪避的响应速度与行为" Opacity="0.6" FontSize="12" />
+            </StackPanel>
+
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,20,0,0">
+                <Button x:Name="CancelButton"
+                        Grid.Column="1"
+                        Content="取消"
+                        Padding="24,10"
+                        CornerRadius="6"
+                        Margin="0,0,10,0" />
+                <Button x:Name="ConfirmButton"
+                        Grid.Column="2"
+                        Content="确定"
+                        Padding="24,10"
+                        CornerRadius="6" />
+            </Grid>
+
+            <StackPanel Spacing="16">
+                <!-- 闪避延迟 -->
+                <Border Background="{DynamicResource SukiBackground}"
+                        CornerRadius="8"
+                        Padding="16,12">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="闪避延迟" FontWeight="SemiBold" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                                <TextBlock x:Name="DelayValueText" Text="150"
+                                           FontWeight="SemiBold" FontFamily="Consolas" />
+                                <TextBlock Text="ms" Opacity="0.6" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="检测到闪避提示后触发闪避的延迟，值越小响应越快"
+                                   Opacity="0.6" FontSize="11" />
+                        <Slider x:Name="DelaySlider"
+                                Minimum="0" Maximum="300"
+                                Value="150"
+                                TickFrequency="10"
+                                IsSnapToTickEnabled="True" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 战技释放时暂停闪避 -->
+                <Border Background="{DynamicResource SukiBackground}"
+                        CornerRadius="8"
+                        Padding="16,12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="战技释放时暂停闪避" FontWeight="SemiBold" />
+                            <TextBlock Text="自动战技触发后 500ms 内不执行闪避，避免打断战技动画"
+                                       Opacity="0.6" FontSize="11" />
+                        </StackPanel>
+                        <CheckBox x:Name="SuppressDuringSkillCheckBox"
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</Window>

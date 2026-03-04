@@ -1,0 +1,109 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.AutoSkillOrderDialog"
+        Title="战技循环顺序设置"
+        Width="420" Height="460"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Border Background="{DynamicResource SukiCardBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource SukiControlBorderBrush}"
+            BorderThickness="1"
+            Padding="28">
+        <DockPanel>
+            <!-- Title -->
+            <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,20">
+                <TextBlock Text="战技循环顺序" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="配置自动战技按键的循环触发顺序" Opacity="0.6" FontSize="12" />
+            </StackPanel>
+
+            <!-- Bottom buttons -->
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,20,0,0">
+                <Button x:Name="ResetButton"
+                        Grid.Column="0"
+                        Content="恢复默认"
+                        Padding="16,10"
+                        CornerRadius="6" />
+                <Button x:Name="CancelButton"
+                        Grid.Column="2"
+                        Content="取消"
+                        Padding="24,10"
+                        CornerRadius="6"
+                        Margin="0,0,10,0" />
+                <Button x:Name="ConfirmButton"
+                        Grid.Column="3"
+                        Content="确定"
+                        Padding="24,10"
+                        CornerRadius="6" />
+            </Grid>
+
+            <!-- Content -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="14">
+                    <!-- Input -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,14">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="输入数字 1-4 的组合来指定循环顺序"
+                                       FontSize="12" Opacity="0.7" />
+                            <TextBox x:Name="OrderTextBox"
+                                     Watermark="留空表示按配队顺序 (1234)"
+                                     MaxLength="20"
+                                     FontSize="20"
+                                     FontFamily="Consolas, Courier New, monospace"
+                                     LetterSpacing="6"
+                                     HorizontalContentAlignment="Center"
+                                     Padding="10,12" />
+                            <TextBlock x:Name="ValidationText"
+                                       FontSize="11"
+                                       Foreground="#EF4444"
+                                       IsVisible="False" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Quick presets -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,14">
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="快捷预设" FontSize="12" FontWeight="SemiBold" />
+                            <WrapPanel Orientation="Horizontal" x:Name="PresetPanel">
+                                <Button x:Name="Preset1234" Content="1234" Padding="14,7" Margin="0,0,8,6" FontSize="13" FontFamily="Consolas" CornerRadius="4" />
+                                <Button x:Name="Preset1324" Content="1324" Padding="14,7" Margin="0,0,8,6" FontSize="13" FontFamily="Consolas" CornerRadius="4" />
+                                <Button x:Name="Preset1" Content="1" Padding="14,7" Margin="0,0,8,6" FontSize="13" FontFamily="Consolas" CornerRadius="4" />
+                                <Button x:Name="Preset12" Content="12" Padding="14,7" Margin="0,0,8,6" FontSize="13" FontFamily="Consolas" CornerRadius="4" />
+                                <Button x:Name="Preset23" Content="23" Padding="14,7" Margin="0,0,8,6" FontSize="13" FontFamily="Consolas" CornerRadius="4" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Preview -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,14">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="循环预览" FontSize="12" FontWeight="SemiBold" />
+                            <TextBlock x:Name="PreviewText"
+                                       FontSize="13"
+                                       FontFamily="Consolas, Courier New, monospace"
+                                       Opacity="0.8"
+                                       TextWrapping="Wrap"
+                                       LineHeight="20" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>

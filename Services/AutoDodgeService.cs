@@ -12,6 +12,9 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
 {
     private readonly SharedDetectionState _sharedDetection;
     private readonly IInputService _inputService;
+    private readonly Func<int> _dodgeDelayProvider;
+    private readonly Func<bool> _suppressDuringSkillProvider;
+    private readonly Func<long> _lastSkillTimestampProvider;
 
     private CancellationTokenSource? _cts;
     private Task? _dodgeTask;
@@ -20,8 +23,8 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
     private volatile string? _lastErrorMessage;
 
     private const string DodgePromptName = "闪避提示";
-    private const int DodgeDelayMs = 150;
     private const int DodgeCooldownMs = 300;
+    private const int SkillSuppressMs = 500;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long DodgeCount => Volatile.Read(ref _dodgeCount);
@@ -36,10 +39,15 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
 
     public event Action<string>? Log;
 
-    public AutoDodgeService(SharedDetectionState sharedDetection, IInputService inputService)
+    public AutoDodgeService(SharedDetectionState sharedDetection, IInputService inputService,
+        Func<int> dodgeDelayProvider, Func<bool> suppressDuringSkillProvider,
+        Func<long> lastSkillTimestampProvider)
     {
         _sharedDetection = sharedDetection;
         _inputService = inputService;
+        _dodgeDelayProvider = dodgeDelayProvider;
+        _suppressDuringSkillProvider = suppressDuringSkillProvider;
+        _lastSkillTimestampProvider = lastSkillTimestampProvider;
     }
 
     public void Start(IntPtr hWnd)
@@ -106,14 +114,24 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
                 if (hasDodgePrompt)
                 {
                     var now = Environment.TickCount64;
-                    if (now - lastDodgeTimestamp >= DodgeCooldownMs)
+                    if (now - lastDodgeTimestamp < DodgeCooldownMs)
+                        continue;
+
+                    if (_suppressDuringSkillProvider())
                     {
-                        await Task.Delay(DodgeDelayMs, token);
-                        await _inputService.SendKeyPressAsync(hWnd, Win32Helper.VK_LSHIFT);
-                        lastDodgeTimestamp = Environment.TickCount64;
-                        Interlocked.Increment(ref _dodgeCount);
-                        Log?.Invoke("检测到闪避提示，已发送闪避按键");
+                        var skillTs = _lastSkillTimestampProvider();
+                        if (skillTs > 0 && now - skillTs < SkillSuppressMs)
+                            continue;
                     }
+
+                    var delay = _dodgeDelayProvider();
+                    if (delay > 0)
+                        await Task.Delay(delay, token);
+
+                    await _inputService.SendKeyPressAsync(hWnd, Win32Helper.VK_LSHIFT);
+                    lastDodgeTimestamp = Environment.TickCount64;
+                    Interlocked.Increment(ref _dodgeCount);
+                    Log?.Invoke("检测到闪避提示，已发送闪避按键");
                 }
             }
             catch (OperationCanceledException)

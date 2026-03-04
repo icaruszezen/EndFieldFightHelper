@@ -38,6 +38,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
     private bool _isLoadingToggles;
+    private string _autoSkillOrder = "";
 
     [ObservableProperty]
     private WindowInfo? _endfieldWindow;
@@ -123,6 +124,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             IsAutoUltimateEnabled = t.AutoUltimate;
             IsAutoChainSkillEnabled = t.AutoChainSkill;
             IsBattleOverlayEnabled = t.BattleOverlay;
+
+            _autoSkillOrder = settingsViewModel.GetAutoSkillOrder();
+            _autoBattleSkillService.SetSkillOrder(ParseSkillOrder(_autoSkillOrder));
         }
         finally
         {
@@ -534,6 +538,60 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             var rect = Win32Helper.GetWindowRectDwm(hWnd.Value);
             _overlayService.ApplySettings(true, rect.Left + 10, rect.Top + 50, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
         }
+    }
+
+    [RelayCommand]
+    private async Task OpenDodgeSettings()
+    {
+        var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (mainWindow == null || _settingsViewModel == null) return;
+
+        var (delay, suppress) = _settingsViewModel.GetDodgeSettings();
+        var dialog = new DodgeSettingsDialog();
+        dialog.Initialize(delay, suppress);
+        await dialog.ShowDialog(mainWindow);
+
+        if (dialog.Result is { } result)
+        {
+            _settingsViewModel.UpdateDodgeSettings(result.DelayMs, result.SuppressDuringSkill);
+            AddLog($"闪避设置已更新：延迟 {result.DelayMs}ms，战技暂停 {(result.SuppressDuringSkill ? "开启" : "关闭")}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenAutoSkillOrderSettings()
+    {
+        var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (mainWindow == null) return;
+
+        var dialog = new AutoSkillOrderDialog();
+        dialog.Initialize(_autoSkillOrder);
+        await dialog.ShowDialog(mainWindow);
+
+        if (dialog.Result != null)
+        {
+            _autoSkillOrder = dialog.Result;
+            _autoBattleSkillService.SetSkillOrder(ParseSkillOrder(_autoSkillOrder));
+            _settingsViewModel?.UpdateAutoSkillOrder(_autoSkillOrder);
+
+            if (string.IsNullOrEmpty(_autoSkillOrder))
+                AddLog("战技循环顺序已恢复默认（按配队顺序）");
+            else
+                AddLog($"战技循环顺序已更新: {_autoSkillOrder}");
+        }
+    }
+
+    private static int[]? ParseSkillOrder(string order)
+    {
+        if (string.IsNullOrEmpty(order)) return null;
+        var result = new int[order.Length];
+        for (var i = 0; i < order.Length; i++)
+        {
+            var ch = order[i];
+            if (ch < '1' || ch > '4') return null;
+            result[i] = ch - '1';
+        }
+        return result;
     }
 
     [RelayCommand]

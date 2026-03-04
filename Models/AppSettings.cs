@@ -25,7 +25,10 @@ public class AppSettings
     public string GitHubMirrorUrl { get; set; } = "https://ghgo.xyz/";
 
     public bool IsAutoDodgeEnabled { get; set; } = false;
+    public int DodgeDelayMs { get; set; } = 150;
+    public bool DodgeSuppressDuringSkill { get; set; } = false;
     public bool IsAutoSkillEnabled { get; set; } = false;
+    public string AutoSkillOrder { get; set; } = "";
     public bool IsAutoAttackEnabled { get; set; } = false;
     public bool IsAutoUltimateEnabled { get; set; } = false;
     public bool IsAutoChainSkillEnabled { get; set; } = false;
