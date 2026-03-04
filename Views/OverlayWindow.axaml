@@ -28,23 +28,132 @@
                 CornerRadius="6"
                 Padding="8"
                 Margin="6">
-            <ScrollViewer x:Name="LogScrollViewer"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding LogMessages}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"
-                                       Foreground="White"
-                                       FontSize="11"
+            <DockPanel>
+                <!-- Top button bar -->
+                <StackPanel DockPanel.Dock="Top"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,0,4">
+                    <!-- Toggle edit-mode button -->
+                    <Button x:Name="EditToggleButton"
+                            Command="{Binding ToggleEditModeCommand}"
+                            Width="24" Height="24"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Cursor="Hand"
+                            Opacity="0.5"
+                            ToolTip.Tip="切换编辑模式">
+                        <Panel>
+                            <PathIcon Data="M18,8H17V6A5,5 0 0,0 12,1A5,5 0 0,0 7,6H9A3,3 0 0,1 12,3A3,3 0 0,1 15,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M18,20H6V10H18V20M12,17A2,2 0 0,0 14,15A2,2 0 0,0 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17Z"
+                                      Width="14" Height="14"
+                                      Foreground="White"
+                                      IsVisible="{Binding !IsEditMode}" />
+                            <PathIcon Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"
+                                      Width="14" Height="14"
+                                      Foreground="#FFCC00"
+                                      IsVisible="{Binding IsEditMode}" />
+                        </Panel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Content sections -->
+                <StackPanel Spacing="4">
+
+                    <!-- Battle Axis Progress Section -->
+                    <StackPanel IsVisible="{Binding ShowBattleAxis}" Spacing="2">
+                        <TextBlock Text="战斗轴"
+                                   Foreground="#AAFFFFFF"
+                                   FontSize="{Binding BattleAxisFontSize}"
+                                   FontWeight="SemiBold" />
+                        <StackPanel IsVisible="{Binding IsAxisPlaying}" Spacing="1">
+                            <TextBlock Foreground="#FF4FC3F7"
+                                       FontSize="{Binding BattleAxisFontSize}"
+                                       FontFamily="Consolas, Courier New, monospace">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}▶ {0:F1}s  {1}">
+                                        <Binding Path="BattleAxisElapsedSeconds" />
+                                        <Binding Path="CurrentActionText" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                            <TextBlock Text="{Binding NextActionText, StringFormat='{}→ {0}'}"
+                                       Foreground="#AA81C784"
+                                       FontSize="{Binding BattleAxisFontSize}"
                                        FontFamily="Consolas, Courier New, monospace"
-                                       TextWrapping="NoWrap"
-                                       TextTrimming="CharacterEllipsis"
-                                       Padding="0,1" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                                       IsVisible="{Binding NextActionText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                        </StackPanel>
+                        <TextBlock Text="等待战斗开始..."
+                                   Foreground="#66FFFFFF"
+                                   FontSize="{Binding BattleAxisFontSize}"
+                                   IsVisible="{Binding !IsAxisPlaying}" />
+                        <Border Height="1" Background="#33FFFFFF" Margin="0,2" />
+                    </StackPanel>
+
+                    <!-- Pipeline Status Section -->
+                    <StackPanel IsVisible="{Binding ShowPipelineStatus}" Spacing="2">
+                        <TextBlock Text="管道状态"
+                                   Foreground="#AAFFFFFF"
+                                   FontSize="10"
+                                   FontWeight="SemiBold" />
+                        <ItemsControl ItemsSource="{Binding PipelineItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:OverlayPipelineItem">
+                                    <Grid ColumnDefinitions="Auto,*,Auto"
+                                          Margin="0,1"
+                                          IsVisible="{Binding IsVisible}">
+                                        <Panel Grid.Column="0"
+                                               Width="6" Height="6"
+                                               Margin="0,0,4,0"
+                                               VerticalAlignment="Center">
+                                            <Ellipse Width="6" Height="6"
+                                                     Fill="#FF4CAF50"
+                                                     IsVisible="{Binding IsRunning}" />
+                                            <Ellipse Width="6" Height="6"
+                                                     Fill="#66888888"
+                                                     IsVisible="{Binding !IsRunning}" />
+                                        </Panel>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Name}"
+                                                   Foreground="White"
+                                                   FontSize="10"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding MetricSummary}"
+                                                   Foreground="#AAFFFFFF"
+                                                   FontSize="10"
+                                                   FontFamily="Consolas, Courier New, monospace"
+                                                   VerticalAlignment="Center"
+                                                   Margin="6,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Border Height="1" Background="#33FFFFFF" Margin="0,2" />
+                    </StackPanel>
+
+                    <!-- Log Section -->
+                    <ScrollViewer x:Name="LogScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  IsVisible="{Binding ShowLog}">
+                        <ItemsControl ItemsSource="{Binding LogMessages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="White"
+                                               FontSize="11"
+                                               FontFamily="Consolas, Courier New, monospace"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               Padding="0,1" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <!-- Edit-mode highlight border -->
@@ -69,32 +178,5 @@
                     Background="#88FFCC00" CornerRadius="2"
                     Cursor="BottomRightCorner" />
         </Canvas>
-
-        <!-- Toggle edit-mode button (top-right) -->
-        <Button x:Name="EditToggleButton"
-                Command="{Binding ToggleEditModeCommand}"
-                Width="24" Height="24"
-                Padding="0"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Top"
-                Margin="0,0,0,0"
-                Background="Transparent"
-                BorderThickness="0"
-                Cursor="Hand"
-                Opacity="0.5"
-                ToolTip.Tip="切换编辑模式">
-            <Panel>
-                <!-- Unlocked icon (normal mode) -->
-                <PathIcon Data="M18,8H17V6A5,5 0 0,0 12,1A5,5 0 0,0 7,6H9A3,3 0 0,1 12,3A3,3 0 0,1 15,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M18,20H6V10H18V20M12,17A2,2 0 0,0 14,15A2,2 0 0,0 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17Z"
-                          Width="14" Height="14"
-                          Foreground="White"
-                          IsVisible="{Binding !IsEditMode}" />
-                <!-- Locked/editing icon (edit mode) -->
-                <PathIcon Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"
-                          Width="14" Height="14"
-                          Foreground="#FFCC00"
-                          IsVisible="{Binding IsEditMode}" />
-            </Panel>
-        </Button>
     </Grid>
 </Window>

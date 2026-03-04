@@ -23,7 +23,7 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
 
     private static readonly HashSet<string> RelevantActionTypes = ["attack", "skill", "link", "ultimate"];
 
-    private static readonly Dictionary<string, string> ActionTypeLabels = new()
+    internal static readonly Dictionary<string, string> ActionTypeLabels = new()
     {
         ["attack"] = "重击",
         ["skill"] = "战技",

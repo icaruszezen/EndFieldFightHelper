@@ -1,15 +1,20 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
+using EndFieldFightHelper.Views;
 
 namespace EndFieldFightHelper.ViewModels;
 
@@ -28,6 +33,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private SettingsViewModel? _settingsViewModel;
     private OverlayViewModel? _overlayViewModel;
     private DebugViewModel? _debugViewModel;
+    private BattleAxisViewModel? _battleAxisViewModel;
+    private IReadOnlyList<IPipelineStatusProvider>? _pipelineProviders;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
     private bool _isLoadingToggles;
@@ -131,6 +138,16 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public void SetDebugViewModel(DebugViewModel debugViewModel)
     {
         _debugViewModel = debugViewModel;
+    }
+
+    public void SetBattleAxisViewModel(BattleAxisViewModel battleAxisViewModel)
+    {
+        _battleAxisViewModel = battleAxisViewModel;
+    }
+
+    public void SetPipelineProviders(IReadOnlyList<IPipelineStatusProvider> providers)
+    {
+        _pipelineProviders = providers;
     }
 
     private IntPtr? GetEffectiveWindowHandle()
@@ -316,6 +333,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
             if (IsBattleOverlayEnabled)
                 ApplyBattleOverlay();
+
+            TryStartAxisPlayback();
         });
     }
 
@@ -330,9 +349,34 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _autoBattleSkillService.Stop();
             _activeCharacterService.Stop();
 
-            if (IsBattleOverlayEnabled)
-                _overlayService.ApplySettings(false, 0, 0, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
+            _overlayViewModel?.StopAxisPlayback();
         });
+    }
+
+    private void TryStartAxisPlayback()
+    {
+        if (_overlayViewModel is not { ShowBattleAxis: true }) return;
+        if (_battleAxisViewModel is not { HasData: true }) return;
+
+        var actions = BuildOverlayBattleActions();
+        if (actions.Count > 0)
+            _overlayViewModel.StartAxisPlayback(actions);
+    }
+
+    private List<OverlayBattleAction> BuildOverlayBattleActions()
+    {
+        if (_battleAxisViewModel?.Tracks == null) return [];
+
+        return _battleAxisViewModel.Tracks
+            .SelectMany(track => track.Actions.Select(a => new OverlayBattleAction
+            {
+                CharacterName = track.CharacterName,
+                TypeLabel = BattleAxisViewModel.ActionTypeLabels.GetValueOrDefault(a.Type, a.TypeLabel),
+                StartTime = a.StartTime,
+                Duration = a.Duration,
+            }))
+            .OrderBy(a => a.StartTime)
+            .ToList();
     }
 
     private void OnCameraScanStarting()
@@ -489,6 +533,46 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         {
             var rect = Win32Helper.GetWindowRectDwm(hWnd.Value);
             _overlayService.ApplySettings(true, rect.Left + 10, rect.Top + 50, OverlayDefaults.Width, OverlayDefaults.Height, OverlayDefaults.Opacity);
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenOverlayContentSettings()
+    {
+        var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (mainWindow == null) return;
+
+        var currentSettings = _settingsViewModel?.GetOverlayContentSettings() ?? new OverlayContentSettings();
+        var pipelineNames = _pipelineProviders?.Select(p => p.PipelineName).ToList() ?? [];
+
+        var dialog = new OverlayContentSettingsDialog();
+        dialog.Initialize(currentSettings, pipelineNames);
+        await dialog.ShowDialog(mainWindow);
+
+        if (dialog.Result != null)
+        {
+            _settingsViewModel?.UpdateOverlayContentSettings(dialog.Result);
+            ApplyOverlayContentSettings(dialog.Result);
+            AddLog("叠加层显示设置已更新");
+        }
+    }
+
+    public void ApplyOverlayContentSettings(OverlayContentSettings settings)
+    {
+        if (_overlayViewModel == null) return;
+
+        _overlayViewModel.ShowLog = settings.ShowLog;
+        _overlayViewModel.ShowPipelineStatus = settings.ShowPipelineStatus;
+        _overlayViewModel.ShowBattleAxis = settings.ShowBattleAxis;
+        _overlayViewModel.BattleAxisFontSize = settings.BattleAxisFontSize;
+
+        if (settings.ShowPipelineStatus && _pipelineProviders != null)
+        {
+            _overlayViewModel.SetPipelineProviders(_pipelineProviders, settings.VisiblePipelineNames);
+        }
+        else
+        {
+            _overlayViewModel.UpdateVisiblePipelines(settings.VisiblePipelineNames);
         }
     }
 

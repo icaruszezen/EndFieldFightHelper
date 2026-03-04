@@ -43,6 +43,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private bool _homeAutoUltimate;
     private bool _homeAutoChainSkill;
     private bool _homeBattleOverlay;
+    private OverlayContentSettings _overlayContentSettings = new();
 
     [ObservableProperty]
     private CaptureMethod _selectedMethod = CaptureMethod.PrintWindow;
@@ -495,6 +496,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     _homeAutoUltimate = settings.IsAutoUltimateEnabled;
                     _homeAutoChainSkill = settings.IsAutoChainSkillEnabled;
                     _homeBattleOverlay = settings.IsBattleOverlayEnabled;
+                    _overlayContentSettings = settings.OverlayContent ?? new OverlayContentSettings();
                 }
             }
             else if (AvailableColorThemes.Count > 0)
@@ -568,6 +570,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 IsAutoUltimateEnabled = _homeAutoUltimate,
                 IsAutoChainSkillEnabled = _homeAutoChainSkill,
                 IsBattleOverlayEnabled = _homeBattleOverlay,
+                OverlayContent = _overlayContentSettings,
             };
 
             var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
@@ -630,6 +633,15 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             case nameof(AppSettings.IsBattleOverlayEnabled): _homeBattleOverlay = value; break;
             default: return;
         }
+        ScheduleSave();
+    }
+
+    public OverlayContentSettings GetOverlayContentSettings()
+        => _overlayContentSettings;
+
+    public void UpdateOverlayContentSettings(OverlayContentSettings settings)
+    {
+        _overlayContentSettings = settings;
         ScheduleSave();
     }
 

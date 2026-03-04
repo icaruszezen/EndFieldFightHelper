@@ -1,0 +1,140 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="EndFieldFightHelper.Views.OverlayContentSettingsDialog"
+        Title="叠加层显示设置"
+        Width="400" Height="480"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        ShowInTaskbar="False"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        Background="Transparent"
+        TransparencyLevelHint="AcrylicBlur">
+
+    <Border Background="{DynamicResource SukiCardBackground}"
+            CornerRadius="12"
+            BorderBrush="{DynamicResource SukiControlBorderBrush}"
+            BorderThickness="1"
+            Padding="28">
+        <DockPanel>
+            <!-- Title -->
+            <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,20">
+                <TextBlock Text="叠加层显示内容" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="选择战斗叠加层中要显示的内容模块" Opacity="0.6" FontSize="12" />
+            </StackPanel>
+
+            <!-- Bottom buttons -->
+            <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,20,0,0">
+                <Button x:Name="CancelButton"
+                        Grid.Column="1"
+                        Content="取消"
+                        Padding="24,10"
+                        CornerRadius="6"
+                        Margin="0,0,10,0" />
+                <Button x:Name="ConfirmButton"
+                        Grid.Column="2"
+                        Content="确定"
+                        Padding="24,10"
+                        CornerRadius="6" />
+            </Grid>
+
+            <!-- Content -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="16">
+                    <!-- Log toggle -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="日志输出" FontWeight="SemiBold" />
+                                <TextBlock Text="显示各管道的实时运行日志"
+                                           Opacity="0.6" FontSize="11" />
+                            </StackPanel>
+                            <CheckBox x:Name="ShowLogCheckBox"
+                                      Grid.Column="1"
+                                      VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Pipeline status toggle + sub-list -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,12">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="管道运行状态" FontWeight="SemiBold" />
+                                    <TextBlock Text="显示选中管道的运行状态与关键指标"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <CheckBox x:Name="ShowPipelineCheckBox"
+                                          Grid.Column="1"
+                                          VerticalAlignment="Center" />
+                            </Grid>
+
+                            <!-- Pipeline sub-list -->
+                            <Border x:Name="PipelineListBorder"
+                                    BorderThickness="1"
+                                    BorderBrush="{DynamicResource SukiControlBorderBrush}"
+                                    CornerRadius="6"
+                                    Padding="12,8"
+                                    Margin="8,0,0,0">
+                                <StackPanel x:Name="PipelineListPanel" Spacing="4">
+                                    <TextBlock Text="选择要显示的管道：" FontSize="11" Opacity="0.6" Margin="0,0,0,4" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Battle axis toggle -->
+                    <Border Background="{DynamicResource SukiBackground}"
+                            CornerRadius="8"
+                            Padding="16,12">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="战斗轴进度" FontWeight="SemiBold" />
+                                    <TextBlock Text="战斗时自动播放已配置的战斗轴，提示操作时机"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <CheckBox x:Name="ShowBattleAxisCheckBox"
+                                          Grid.Column="1"
+                                          VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Border x:Name="BattleAxisFontSizeBorder"
+                                    BorderThickness="1"
+                                    BorderBrush="{DynamicResource SukiControlBorderBrush}"
+                                    CornerRadius="6"
+                                    Padding="12,8"
+                                    Margin="8,0,0,0">
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="字体大小" FontSize="12" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="FontSizeValueText"
+                                                   Text="11"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   Grid.Column="1"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Slider x:Name="BattleAxisFontSizeSlider"
+                                            Minimum="8"
+                                            Maximum="24"
+                                            Value="11"
+                                            TickFrequency="1"
+                                            IsSnapToTickEnabled="True" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Border>
+</Window>

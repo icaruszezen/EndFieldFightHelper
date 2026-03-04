@@ -73,12 +73,18 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         DebugViewModel = new DebugViewModel(
             pipelineService, _activeCharacterService, ScreenshotViewModel,
             YoloDetectionViewModel, InputTestViewModel, SettingsViewModel);
-        TaskStatusViewModel = new TaskStatusViewModel([pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, _activeCharacterService]);
+        IPipelineStatusProvider[] allProviders = [pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, _activeCharacterService];
+        TaskStatusViewModel = new TaskStatusViewModel(allProviders);
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);
         HomeViewModel.SetDebugViewModel(DebugViewModel);
+        HomeViewModel.SetBattleAxisViewModel(BattleAxisViewModel);
+        HomeViewModel.SetPipelineProviders(allProviders);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
+
+        var overlayContentSettings = SettingsViewModel.GetOverlayContentSettings();
+        HomeViewModel.ApplyOverlayContentSettings(overlayContentSettings);
 
         SettingsViewModel.ResourcesDownloaded += OnResourcesDownloaded;
 
@@ -173,6 +179,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         SettingsViewModel.ResourcesDownloaded -= OnResourcesDownloaded;
+        OverlayViewModel.Dispose();
         HomeViewModel.Dispose();
         BattleAxisViewModel.Dispose();
         DebugViewModel.Dispose();
