@@ -30,10 +30,12 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private readonly AutoBattleSkillService _autoBattleSkillService;
     private readonly ActiveCharacterService _activeCharacterService;
     private readonly BattleStateService _battleStateService;
+    private readonly AutoAxisService _autoAxisService;
     private SettingsViewModel? _settingsViewModel;
     private OverlayViewModel? _overlayViewModel;
     private DebugViewModel? _debugViewModel;
     private BattleAxisViewModel? _battleAxisViewModel;
+    private TeamSetupViewModel? _teamSetupViewModel;
     private IReadOnlyList<IPipelineStatusProvider>? _pipelineProviders;
     private Timer? _previewTimer;
     private CaptureMethod _captureMethod = CaptureMethod.PrintWindow;
@@ -74,6 +76,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     private bool _isAutoChainSkillEnabled;
 
     [ObservableProperty]
+    private bool _isAutoAxisEnabled;
+
+    [ObservableProperty]
     private bool _isBattleOverlayEnabled;
 
     public ObservableCollection<string> LogMessages { get; } = new();
@@ -84,7 +89,8 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         RecognitionPipelineService pipelineService, AutoDodgeService autoDodgeService,
         AutoAttackService autoAttackService, AutoUltimateService autoUltimateService,
         AutoChainSkillService autoChainSkillService, AutoBattleSkillService autoBattleSkillService,
-        ActiveCharacterService activeCharacterService, BattleStateService battleStateService)
+        ActiveCharacterService activeCharacterService, BattleStateService battleStateService,
+        AutoAxisService autoAxisService)
     {
         _screenshotService = screenshotService;
         _overlayService = overlayService;
@@ -96,6 +102,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _autoBattleSkillService = autoBattleSkillService;
         _activeCharacterService = activeCharacterService;
         _battleStateService = battleStateService;
+        _autoAxisService = autoAxisService;
         _pipelineService.Log += msg => AddLog(msg);
         _autoDodgeService.Log += msg => AddLog(msg);
         _autoAttackService.Log += msg => AddLog(msg);
@@ -104,9 +111,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _autoBattleSkillService.Log += msg => AddLog(msg);
         _activeCharacterService.Log += msg => AddLog(msg);
         _battleStateService.Log += msg => AddLog(msg);
+        _autoAxisService.Log += msg => AddLog(msg);
         _battleStateService.BattleEntered += OnBattleEntered;
         _battleStateService.BattleExited += OnBattleExited;
         _battleStateService.CameraScanStarting += OnCameraScanStarting;
+        _autoDodgeService.DodgeTriggered += OnDodgeTriggered;
         FindEndfieldWindow();
     }
 
@@ -123,6 +132,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             IsAutoAttackEnabled = t.AutoAttack;
             IsAutoUltimateEnabled = t.AutoUltimate;
             IsAutoChainSkillEnabled = t.AutoChainSkill;
+            IsAutoAxisEnabled = t.AutoAxis;
             IsBattleOverlayEnabled = t.BattleOverlay;
 
             _autoSkillOrder = settingsViewModel.GetAutoSkillOrder();
@@ -147,6 +157,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
     public void SetBattleAxisViewModel(BattleAxisViewModel battleAxisViewModel)
     {
         _battleAxisViewModel = battleAxisViewModel;
+    }
+
+    public void SetTeamSetupViewModel(TeamSetupViewModel teamSetupViewModel)
+    {
+        _teamSetupViewModel = teamSetupViewModel;
     }
 
     public void SetPipelineProviders(IReadOnlyList<IPipelineStatusProvider> providers)
@@ -295,13 +310,13 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         else
         {
             _battleStateService.Stop();
-            // OnBattleExited is dispatched via Post, so explicit stops ensure synchronous shutdown
             _activeCharacterService.Stop();
             _autoDodgeService.Stop();
             _autoAttackService.Stop();
             _autoUltimateService.Stop();
             _autoChainSkillService.Stop();
             _autoBattleSkillService.Stop();
+            _autoAxisService.Stop();
             _pipelineService.Stop();
             AddLog("战斗辅助已关闭");
             if (IsPreviewRunning) StopPreview();
@@ -323,17 +338,22 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             if (IsAutoDodgeEnabled && handle != IntPtr.Zero)
                 _autoDodgeService.Start(handle);
 
-            if (IsAutoAttackEnabled && handle != IntPtr.Zero)
-                _autoAttackService.Start(handle);
+            var axisStarted = IsAutoAxisEnabled && handle != IntPtr.Zero && TryStartAutoAxis(handle);
 
-            if (IsAutoUltimateEnabled && handle != IntPtr.Zero)
-                _autoUltimateService.Start(handle);
+            if (!axisStarted)
+            {
+                if (IsAutoAttackEnabled && handle != IntPtr.Zero)
+                    _autoAttackService.Start(handle);
 
-            if (IsAutoChainSkillEnabled && handle != IntPtr.Zero)
-                _autoChainSkillService.Start(handle);
+                if (IsAutoUltimateEnabled && handle != IntPtr.Zero)
+                    _autoUltimateService.Start(handle);
 
-            if (IsAutoSkillEnabled && handle != IntPtr.Zero)
-                _autoBattleSkillService.Start(handle);
+                if (IsAutoChainSkillEnabled && handle != IntPtr.Zero)
+                    _autoChainSkillService.Start(handle);
+
+                if (IsAutoSkillEnabled && handle != IntPtr.Zero)
+                    _autoBattleSkillService.Start(handle);
+            }
 
             if (IsBattleOverlayEnabled)
                 ApplyBattleOverlay();
@@ -351,6 +371,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _autoUltimateService.Stop();
             _autoChainSkillService.Stop();
             _autoBattleSkillService.Stop();
+            _autoAxisService.Stop();
             _activeCharacterService.Stop();
 
             _overlayViewModel?.StopAxisPlayback();
@@ -383,6 +404,73 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             .ToList();
     }
 
+    private bool TryStartAutoAxis(IntPtr handle)
+    {
+        var events = BuildAxisTimelineEvents();
+        if (events.Count == 0)
+        {
+            AddLog("自动打轴启动失败：未导入战斗轴数据或数据为空");
+            return false;
+        }
+
+        _autoAxisService.Start(handle, events, FindSlotForCharacter);
+        return true;
+    }
+
+    private List<AxisTimelineEvent> BuildAxisTimelineEvents()
+    {
+        if (_battleAxisViewModel is not { HasData: true, SelectedScenario: { } scenario })
+            return [];
+
+        var data = scenario.Scenario.Data;
+        var events = new List<AxisTimelineEvent>();
+
+        if (data.SwitchEvents != null)
+        {
+            foreach (var sw in data.SwitchEvents)
+                events.Add(new AxisTimelineEvent(sw.Time, AxisEventType.Switch, sw.CharacterId));
+        }
+
+        foreach (var track in data.Tracks)
+        {
+            foreach (var action in track.Actions)
+            {
+                if (action.IsDisabled) continue;
+                var type = action.Type switch
+                {
+                    "attack" => (AxisEventType?)AxisEventType.Attack,
+                    "skill" => AxisEventType.Skill,
+                    "link" => AxisEventType.Link,
+                    "ultimate" => AxisEventType.Ultimate,
+                    _ => null,
+                };
+                if (type == null) continue;
+                events.Add(new AxisTimelineEvent(action.StartTime, type.Value, track.Id, action.Duration));
+            }
+        }
+
+        events.Sort((a, b) => a.Time.CompareTo(b.Time));
+        return events;
+    }
+
+    private int? FindSlotForCharacter(string characterId)
+    {
+        if (_teamSetupViewModel == null) return null;
+        for (var i = 1; i <= 4; i++)
+        {
+            var slot = _teamSetupViewModel.GetSlot(i);
+            if (slot != null && string.Equals(slot.Id, characterId, StringComparison.Ordinal))
+                return i;
+        }
+        return null;
+    }
+
+    private void OnDodgeTriggered()
+    {
+        if (_autoAxisService.IsRunning)
+            _autoAxisService.RequestPause(200);
+    }
+
     private void OnCameraScanStarting()
     {
         Dispatcher.UIThread.Post(() =>
@@ -392,6 +480,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _autoUltimateService.Stop();
             _autoChainSkillService.Stop();
             _autoBattleSkillService.Stop();
+            _autoAxisService.Stop();
             _activeCharacterService.Stop();
         });
     }
@@ -494,6 +583,49 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         }
 
         _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoChainSkillEnabled), value);
+    }
+
+    partial void OnIsAutoAxisEnabledChanged(bool value)
+    {
+        if (_isLoadingToggles) return;
+
+        var handle = _pipelineService.TargetWindowHandle;
+        var inBattle = handle != IntPtr.Zero && _pipelineService.IsRunning && _battleStateService.IsBattleActive;
+
+        if (value)
+        {
+            AddLog("自动打轴已开启");
+            if (inBattle)
+            {
+                var started = TryStartAutoAxis(handle);
+                if (started)
+                {
+                    _autoAttackService.Stop();
+                    _autoUltimateService.Stop();
+                    _autoChainSkillService.Stop();
+                    _autoBattleSkillService.Stop();
+                }
+            }
+        }
+        else
+        {
+            _autoAxisService.Stop();
+            AddLog("自动打轴已关闭");
+
+            if (inBattle)
+            {
+                if (IsAutoAttackEnabled)
+                    _autoAttackService.Start(handle);
+                if (IsAutoUltimateEnabled)
+                    _autoUltimateService.Start(handle);
+                if (IsAutoChainSkillEnabled)
+                    _autoChainSkillService.Start(handle);
+                if (IsAutoSkillEnabled)
+                    _autoBattleSkillService.Start(handle);
+            }
+        }
+
+        _settingsViewModel?.UpdateHomeToggle(nameof(AppSettings.IsAutoAxisEnabled), value);
     }
 
     partial void OnIsBattleOverlayEnabledChanged(bool value)
@@ -662,6 +794,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _autoUltimateService.Dispose();
         _autoChainSkillService.Dispose();
         _autoBattleSkillService.Dispose();
+        _autoAxisService.Dispose();
         _autoAttackService.Dispose();
         _autoDodgeService.Dispose();
         _pipelineService.Dispose();

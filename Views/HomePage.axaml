@@ -243,6 +243,20 @@
 
                             <Separator Opacity="0.2" />
 
+                            <!-- 自动打轴 -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="自动打轴" FontWeight="SemiBold" />
+                                    <TextBlock Text="按导入的战斗轴自动执行战斗操作（需先导入轴数据）"
+                                               Opacity="0.6" FontSize="11" />
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding IsAutoAxisEnabled}"
+                                              VerticalAlignment="Center" />
+                            </Grid>
+
+                            <Separator Opacity="0.2" />
+
                             <!-- 叠加层 -->
                             <Grid ColumnDefinitions="*,Auto,Auto">
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">

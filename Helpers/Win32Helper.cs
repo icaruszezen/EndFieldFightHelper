@@ -323,6 +323,10 @@ public static class Win32Helper
 
     public const int VK_1 = 0x31;
     public const int VK_E = 0x45;
+    public const int VK_F1 = 0x70;
+    public const int VK_F2 = 0x71;
+    public const int VK_F3 = 0x72;
+    public const int VK_F4 = 0x73;
     public const int VK_LSHIFT = 0xA0;
 
     public const uint WM_KEYDOWN = 0x0100;

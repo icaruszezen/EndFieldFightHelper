@@ -38,6 +38,7 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
     }
 
     public event Action<string>? Log;
+    public event Action? DodgeTriggered;
 
     public AutoDodgeService(SharedDetectionState sharedDetection, IInputService inputService,
         Func<int> dodgeDelayProvider, Func<bool> suppressDuringSkillProvider,
@@ -131,6 +132,7 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
                     await _inputService.SendKeyPressAsync(hWnd, Win32Helper.VK_LSHIFT);
                     lastDodgeTimestamp = Environment.TickCount64;
                     Interlocked.Increment(ref _dodgeCount);
+                    DodgeTriggered?.Invoke();
                     Log?.Invoke("检测到闪避提示，已发送闪避按键");
                 }
             }

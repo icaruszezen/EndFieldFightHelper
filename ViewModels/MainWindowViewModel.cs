@@ -58,17 +58,18 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             pipelineService.SharedDetection, inputService, isPausedProvider);
         var autoBattleSkillService = new AutoBattleSkillService(
             pipelineService.SharedDetection, inputService, () => TeamSetupViewModel.TeamCount, isPausedProvider);
+        var autoAxisService = new AutoAxisService(inputService);
         var autoDodgeService = new AutoDodgeService(
             pipelineService.SharedDetection, inputService,
             () => SettingsViewModel!.DodgeDelayMs,
             () => SettingsViewModel!.DodgeSuppressDuringSkill,
-            () => autoBattleSkillService.LastSkillTimestamp);
+            () => Math.Max(autoBattleSkillService.LastSkillTimestamp, autoAxisService.LastSkillTimestamp));
 
         BattleAxisViewModel = new BattleAxisViewModel(TeamSetupViewModel.ApplyCharacterOrder);
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
-            autoBattleSkillService, _activeCharacterService, battleStateService);
+            autoBattleSkillService, _activeCharacterService, battleStateService, autoAxisService);
         SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService, appUpdateService);
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
         OverlayViewModel = new OverlayViewModel();
@@ -77,13 +78,14 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         DebugViewModel = new DebugViewModel(
             pipelineService, _activeCharacterService, ScreenshotViewModel,
             YoloDetectionViewModel, InputTestViewModel, SettingsViewModel);
-        IPipelineStatusProvider[] allProviders = [pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, _activeCharacterService];
+        IPipelineStatusProvider[] allProviders = [pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, autoAxisService, _activeCharacterService];
         TaskStatusViewModel = new TaskStatusViewModel(allProviders);
 
         HomeViewModel.SetSettingsViewModel(SettingsViewModel);
         HomeViewModel.SetOverlayViewModel(OverlayViewModel);
         HomeViewModel.SetDebugViewModel(DebugViewModel);
         HomeViewModel.SetBattleAxisViewModel(BattleAxisViewModel);
+        HomeViewModel.SetTeamSetupViewModel(TeamSetupViewModel);
         HomeViewModel.SetPipelineProviders(allProviders);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
