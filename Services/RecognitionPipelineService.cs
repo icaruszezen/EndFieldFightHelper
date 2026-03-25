@@ -28,6 +28,8 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
     private long _captureFrameCount;
     private long _detectionFrameCount;
     private long _lastDetectionResultCount;
+    private long _captureErrorCount;
+    private long _detectionErrorCount;
     private volatile bool _isDebugOutputEnabled;
     private volatile int _captureFrameIntervalMs;
     private byte[]? _lastPlottedImageBytes;
@@ -71,7 +73,9 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         var capCount = CaptureFrameCount;
         var detCount = DetectionFrameCount;
         var resultCount = LastDetectionResultCount;
-        var skipped = capCount - detCount;
+        var capErrors = Volatile.Read(ref _captureErrorCount);
+        var detErrors = Volatile.Read(ref _detectionErrorCount);
+        var skipped = Math.Max(0, capCount - detCount - detErrors);
 
         return
         [
@@ -80,6 +84,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
             new("截图帧数", capCount.ToString()),
             new("识别帧数", $"{detCount} (跳过 {skipped})"),
             new("目标数", resultCount.ToString()),
+            new("错误次数", $"截图 {capErrors} / 推理 {detErrors}"),
         ];
     }
 
@@ -91,6 +96,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         _detectionService = detectionService;
     }
 
+    /// <remarks>Must be called from the UI thread only.</remarks>
     public void Start(IntPtr hWnd, CaptureMethod method)
     {
         if (IsRunning) return;
@@ -108,6 +114,8 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         Volatile.Write(ref _lastCaptureDurationMs, 0);
         Volatile.Write(ref _lastDetectionDurationMs, 0);
         Volatile.Write(ref _lastDetectionResultCount, 0);
+        Volatile.Write(ref _captureErrorCount, 0);
+        Volatile.Write(ref _detectionErrorCount, 0);
         _lastErrorMessage = null;
 
         _cts = new CancellationTokenSource();
@@ -119,24 +127,37 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         Log?.Invoke("识别管道已启动");
     }
 
+    /// <remarks>Must be called from the UI thread only.</remarks>
     public void Stop()
     {
         if (_cts == null) return;
 
         _cts.Cancel();
 
+        var allTasks = Task.WhenAll(
+            _captureTask ?? Task.CompletedTask,
+            _detectionTask ?? Task.CompletedTask
+        );
+
+        bool tasksFinished;
         try
         {
-            Task.WhenAll(
-                _captureTask ?? Task.CompletedTask,
-                _detectionTask ?? Task.CompletedTask
-            ).Wait(TimeSpan.FromSeconds(3));
+            tasksFinished = allTasks.Wait(TimeSpan.FromSeconds(3));
         }
         catch (AggregateException)
         {
+            tasksFinished = true;
         }
 
-        _cts.Dispose();
+        if (tasksFinished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            _ = allTasks.ContinueWith(_ => leakedCts.Dispose());
+        }
         _cts = null;
         _captureTask = null;
         _detectionTask = null;
@@ -153,6 +174,9 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
     private async Task CaptureLoop(CaptureMethod method, CancellationToken token)
     {
         var sw = new Stopwatch();
+        int consecutiveNullFrames = 0;
+        bool firstFrameLogged = false;
+
         while (!token.IsCancellationRequested)
         {
             try
@@ -164,6 +188,14 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
 
                 if (bitmap != null)
                 {
+                    consecutiveNullFrames = 0;
+
+                    if (!firstFrameLogged)
+                    {
+                        firstFrameLogged = true;
+                        Log?.Invoke($"首帧截图成功: {bitmap.Width}x{bitmap.Height}, 方式={method}, 耗时={sw.ElapsedMilliseconds}ms");
+                    }
+
                     Volatile.Write(ref _lastCaptureDurationMs, sw.ElapsedMilliseconds);
                     Interlocked.Increment(ref _captureFrameCount);
                     SharedCapture.Update(bitmap);
@@ -175,10 +207,25 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
                         if (sleepMs > 0)
                             await Task.Delay(sleepMs, token);
                     }
+                    else
+                    {
+                        await Task.Delay(1, token);
+                    }
                 }
                 else
                 {
-                    await Task.Delay(10, token);
+                    consecutiveNullFrames++;
+                    if (consecutiveNullFrames % 50 == 0)
+                        Log?.Invoke($"截图线程: 连续 {consecutiveNullFrames} 帧截图返回空，窗口可能已关闭或最小化");
+
+                    var backoffMs = consecutiveNullFrames switch
+                    {
+                        < 10 => 10,
+                        < 20 => 50,
+                        < 30 => 200,
+                        _ => 1000,
+                    };
+                    await Task.Delay(backoffMs, token);
                 }
             }
             catch (OperationCanceledException)
@@ -187,6 +234,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
             }
             catch (Exception ex)
             {
+                Interlocked.Increment(ref _captureErrorCount);
                 _lastErrorMessage = $"截图线程: {ex.Message}";
                 Log?.Invoke($"截图线程异常: {ex.Message}");
                 await Task.Delay(100, token);
@@ -200,6 +248,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
     {
         long lastFrameId = 0;
         int consecutiveErrors = 0;
+        bool firstDetectionLogged = false;
         var sw = new Stopwatch();
 
         while (!token.IsCancellationRequested)
@@ -225,6 +274,12 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
 
                     consecutiveErrors = 0;
 
+                    if (!firstDetectionLogged)
+                    {
+                        firstDetectionLogged = true;
+                        Log?.Invoke($"首帧推理成功: 耗时={sw.ElapsedMilliseconds}ms, 检测到 {results.Count} 个目标");
+                    }
+
                     if (plotBytes != null)
                         Volatile.Write(ref _lastPlottedImageBytes, plotBytes);
 
@@ -240,6 +295,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
             }
             catch (Exception ex)
             {
+                Interlocked.Increment(ref _detectionErrorCount);
                 consecutiveErrors++;
                 if (consecutiveErrors >= MaxConsecutiveDetectionErrors)
                 {
