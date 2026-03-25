@@ -194,9 +194,12 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         }
     }
 
+    private const int MaxConsecutiveDetectionErrors = 10;
+
     private async Task DetectionLoop(CancellationToken token)
     {
         long lastFrameId = 0;
+        int consecutiveErrors = 0;
         var sw = new Stopwatch();
 
         while (!token.IsCancellationRequested)
@@ -220,6 +223,8 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
                     var (results, plotBytes) = await _detectionService.DetectAsync(frame.Value.image, skipPlot);
                     sw.Stop();
 
+                    consecutiveErrors = 0;
+
                     if (plotBytes != null)
                         Volatile.Write(ref _lastPlottedImageBytes, plotBytes);
 
@@ -235,8 +240,16 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
+                if (consecutiveErrors >= MaxConsecutiveDetectionErrors)
+                {
+                    _lastErrorMessage = $"识别线程连续 {MaxConsecutiveDetectionErrors} 次失败，已停止: {ex.Message}";
+                    Log?.Invoke($"识别线程连续 {MaxConsecutiveDetectionErrors} 次失败，已停止推理");
+                    _cts?.Cancel();
+                    break;
+                }
                 _lastErrorMessage = $"识别线程: {ex.Message}";
-                Log?.Invoke($"识别线程异常: {ex.Message}");
+                Log?.Invoke($"识别线程异常 ({consecutiveErrors}/{MaxConsecutiveDetectionErrors}): {ex.Message}");
                 await Task.Delay(100, token);
             }
         }

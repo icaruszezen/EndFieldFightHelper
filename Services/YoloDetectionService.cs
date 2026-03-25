@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Compunet.YoloSharp;
 using Compunet.YoloSharp.Plotting;
 using Microsoft.ML.OnnxRuntime;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Bmp;
+using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.PixelFormats;
 using EndFieldFightHelper.Models;
 
@@ -15,6 +16,7 @@ namespace EndFieldFightHelper.Services;
 
 public class YoloDetectionService : IDisposable
 {
+    private readonly SemaphoreSlim _predictorGate = new(1, 1);
     private YoloPredictor? _predictor;
     private string? _currentModelPath;
 
@@ -45,9 +47,10 @@ public class YoloDetectionService : IDisposable
 
         if (!device.IsCpu)
         {
+            SessionOptions? so = null;
             try
             {
-                var so = new SessionOptions();
+                so = new SessionOptions();
                 so.AppendExecutionProvider_DML(device.DeviceId);
                 so.GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL;
 
@@ -61,58 +64,100 @@ public class YoloDetectionService : IDisposable
             }
             catch (Exception ex)
             {
-                GpuFallbackReason = ex.Message;
+                so?.Dispose();
+                GpuFallbackReason = $"{ex.GetType().Name}: {ex.Message}";
             }
         }
 
         if (newPredictor == null)
         {
-            var cpuSession = new SessionOptions
+            SessionOptions? cpuSession = null;
+            try
             {
-                ExecutionMode = ExecutionMode.ORT_PARALLEL,
-                GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
-                EnableMemoryPattern = true,
-            };
-            newPredictor = new YoloPredictor(modelPath, new YoloPredictorOptions
+                cpuSession = new SessionOptions
+                {
+                    ExecutionMode = ExecutionMode.ORT_PARALLEL,
+                    GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+                    EnableMemoryPattern = true,
+                };
+                newPredictor = new YoloPredictor(modelPath, new YoloPredictorOptions
+                {
+                    UseCuda = false,
+                    SessionOptions = cpuSession,
+                    Configuration = configuration,
+                });
+                actualDevice = GpuDeviceInfo.CpuDevice;
+            }
+            catch (Exception ex)
             {
-                UseCuda = false,
-                SessionOptions = cpuSession,
-                Configuration = configuration,
-            });
-            actualDevice = GpuDeviceInfo.CpuDevice;
+                cpuSession?.Dispose();
+                throw new InvalidOperationException(WrapModelLoadError(ex), ex);
+            }
         }
 
-        _predictor?.Dispose();
-        _predictor = newPredictor;
-        _currentModelPath = modelPath;
-        ActiveDevice = actualDevice;
+        _predictorGate.Wait();
+        try
+        {
+            _predictor?.Dispose();
+            _predictor = newPredictor;
+            _currentModelPath = modelPath;
+            ActiveDevice = actualDevice;
+        }
+        finally
+        {
+            _predictorGate.Release();
+        }
     }
 
     public void UnloadModel()
     {
-        _predictor?.Dispose();
-        _predictor = null;
-        _currentModelPath = null;
+        _predictorGate.Wait();
+        try
+        {
+            _predictor?.Dispose();
+            _predictor = null;
+            _currentModelPath = null;
+        }
+        finally
+        {
+            _predictorGate.Release();
+        }
     }
 
     public async Task<(List<DetectionResult> Results, byte[]? PlottedImageBytes)> DetectAsync(
         System.Drawing.Bitmap bitmap, bool skipPlot = false)
     {
-        if (_predictor == null)
-            throw new InvalidOperationException("模型未加载");
+        await _predictorGate.WaitAsync();
+        try
+        {
+            if (_predictor == null)
+                throw new InvalidOperationException("模型未加载");
 
-        using var imageSharpImage = ConvertToImageSharp(bitmap);
-        return await DetectCoreAsync(imageSharpImage, skipPlot);
+            using var imageSharpImage = ConvertToImageSharp(bitmap);
+            return await DetectCoreAsync(imageSharpImage, skipPlot);
+        }
+        finally
+        {
+            _predictorGate.Release();
+        }
     }
 
     public async Task<(List<DetectionResult> Results, byte[]? PlottedImageBytes)> DetectAsync(
         string imagePath, bool skipPlot = false)
     {
-        if (_predictor == null)
-            throw new InvalidOperationException("模型未加载");
+        await _predictorGate.WaitAsync();
+        try
+        {
+            if (_predictor == null)
+                throw new InvalidOperationException("模型未加载");
 
-        using var image = Image.Load(imagePath);
-        return await DetectCoreAsync(image, skipPlot);
+            using var image = Image.Load(imagePath);
+            return await DetectCoreAsync(image, skipPlot);
+        }
+        finally
+        {
+            _predictorGate.Release();
+        }
     }
 
     private async Task<(List<DetectionResult> Results, byte[]? PlottedImageBytes)> DetectCoreAsync(
@@ -139,7 +184,7 @@ public class YoloDetectionService : IDisposable
         {
             using var plotted = await detectionResult.PlotImageAsync(image);
             using var ms = new MemoryStream();
-            await plotted.SaveAsync(ms, new BmpEncoder { BitsPerPixel = BmpBitsPerPixel.Pixel32 });
+            await plotted.SaveAsync(ms, new JpegEncoder { Quality = 85 });
             plottedBytes = ms.ToArray();
         }
 
@@ -171,9 +216,33 @@ public class YoloDetectionService : IDisposable
         }
     }
 
+    private static string WrapModelLoadError(Exception ex)
+    {
+        var msg = ex.Message;
+        if (msg.Contains("protobuf", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("ONNX", StringComparison.OrdinalIgnoreCase)
+            || msg.Contains("Invalid model", StringComparison.OrdinalIgnoreCase))
+            return "所选文件不是有效的 ONNX 模型文件，或文件已损坏";
+
+        if (msg.Contains("input", StringComparison.OrdinalIgnoreCase)
+            && msg.Contains("shape", StringComparison.OrdinalIgnoreCase))
+            return "模型格式不兼容，请使用 YOLOv8/v11 导出的 ONNX 模型";
+
+        return $"模型加载失败: {ex.GetType().Name}: {msg}";
+    }
+
     public void Dispose()
     {
-        _predictor?.Dispose();
-        _predictor = null;
+        _predictorGate.Wait();
+        try
+        {
+            _predictor?.Dispose();
+            _predictor = null;
+        }
+        finally
+        {
+            _predictorGate.Release();
+        }
+        _predictorGate.Dispose();
     }
 }
