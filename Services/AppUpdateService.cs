@@ -34,9 +34,6 @@ public class AppUpdateService : IDisposable
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("EndFieldFightHelper/1.0");
     }
 
-    private string ApplyMirror(string url) =>
-        GitHubMirrorHelper.ApplyMirror(url, GitHubMirrorPrefix);
-
     public static string GetCurrentVersion()
     {
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
@@ -48,7 +45,9 @@ public class AppUpdateService : IDisposable
     {
         try
         {
-            using var response = await _httpClient.GetAsync(ApplyMirror(ReleasesApiUrl), ct);
+            using var response = await GitHubMirrorHelper.GetWithFallbackAsync(
+                _httpClient, ReleasesApiUrl, GitHubMirrorPrefix,
+                HttpCompletionOption.ResponseContentRead, ct);
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return (false, null, "暂无发布版本（仓库不存在、无 Release 或仓库为私有）");
@@ -84,7 +83,10 @@ public class AppUpdateService : IDisposable
 
     private (bool HasUpdate, AppUpdateInfo? Info, string Message) ParseRelease(JsonElement root)
     {
-        var tagName = root.GetProperty("tag_name").GetString() ?? "";
+        if (!root.TryGetProperty("tag_name", out var tagNameProp))
+            return (false, null, "检查更新失败: 响应格式异常（缺少 tag_name 字段）");
+
+        var tagName = tagNameProp.GetString() ?? "";
         var remoteVersion = tagName.TrimStart('v', 'V');
 
         if (!Version.TryParse(remoteVersion, out var remote))
@@ -103,11 +105,18 @@ public class AppUpdateService : IDisposable
         {
             foreach (var asset in assets.EnumerateArray())
             {
-                var name = asset.GetProperty("name").GetString() ?? "";
+                if (!asset.TryGetProperty("name", out var nameProp))
+                    continue;
+                var name = nameProp.GetString() ?? "";
                 if (string.Equals(name, ExpectedAssetName, StringComparison.OrdinalIgnoreCase))
                 {
-                    downloadUrl = ApplyMirror(asset.GetProperty("browser_download_url").GetString() ?? "");
-                    fileSize = asset.GetProperty("size").GetInt64();
+                    downloadUrl = asset.TryGetProperty("browser_download_url", out var urlProp)
+                        ? urlProp.GetString() ?? ""
+                        : "";
+                    fileSize = asset.TryGetProperty("size", out var sizeProp)
+                        && sizeProp.TryGetInt64(out var sizeVal)
+                            ? sizeVal
+                            : 0;
                     break;
                 }
             }
@@ -116,12 +125,19 @@ public class AppUpdateService : IDisposable
         if (string.IsNullOrEmpty(downloadUrl))
             return (false, null, "新版本中未找到可用的下载文件");
 
+        var releaseName = root.TryGetProperty("name", out var rnProp)
+            ? rnProp.GetString() ?? tagName
+            : tagName;
+        var releaseNotes = root.TryGetProperty("body", out var bodyProp)
+            ? bodyProp.GetString() ?? ""
+            : "";
+
         var info = new AppUpdateInfo
         {
             Version = remoteVersion,
             TagName = tagName,
-            ReleaseName = root.GetProperty("name").GetString() ?? tagName,
-            ReleaseNotes = root.GetProperty("body").GetString() ?? "",
+            ReleaseName = releaseName,
+            ReleaseNotes = releaseNotes,
             DownloadUrl = downloadUrl,
             PublishedAt = root.TryGetProperty("published_at", out var pub)
                          && DateTimeOffset.TryParse(pub.GetString(), CultureInfo.InvariantCulture,
@@ -147,7 +163,8 @@ public class AppUpdateService : IDisposable
             Directory.CreateDirectory(tempDir);
 
             progress?.Report(("正在下载更新包...", 2));
-            using (var response = await _httpClient.GetAsync(updateInfo.DownloadUrl,
+            using (var response = await GitHubMirrorHelper.GetWithFallbackAsync(
+                       _httpClient, updateInfo.DownloadUrl, GitHubMirrorPrefix,
                        HttpCompletionOption.ResponseHeadersRead, ct))
             {
                 response.EnsureSuccessStatusCode();
@@ -203,6 +220,8 @@ public class AppUpdateService : IDisposable
         }
     }
 
+    private static string EscapeBatPath(string path) => path.Replace("%", "%%");
+
     public void ApplyUpdateAndRestart()
     {
         if (string.IsNullOrEmpty(_pendingUpdateDir) || !Directory.Exists(_pendingUpdateDir))
@@ -214,29 +233,34 @@ public class AppUpdateService : IDisposable
         var tempDir = Path.GetDirectoryName(_pendingUpdateDir)!;
         var scriptPath = Path.Combine(tempDir, "update.bat");
 
+        var escapedUpdateDir = EscapeBatPath(_pendingUpdateDir);
+        var escapedAppDir = EscapeBatPath(appDir);
+        var escapedExePath = EscapeBatPath(Path.Combine(appDir, exeName));
+        var escapedTempDir = EscapeBatPath(tempDir);
+
         var script = new StringBuilder();
         script.AppendLine("@echo off");
         script.AppendLine("chcp 65001 >nul 2>&1");
         script.AppendLine($"echo 正在等待 EndFieldFightHelper (PID {pid}) 退出...");
-        script.AppendLine($":wait");
+        script.AppendLine(":wait");
         script.AppendLine($"tasklist /FI \"PID eq {pid}\" 2>NUL | find /I \"{pid}\" >NUL");
-        script.AppendLine($"if not errorlevel 1 (");
-        script.AppendLine($"    timeout /t 1 /nobreak >nul");
-        script.AppendLine($"    goto wait");
-        script.AppendLine($")");
+        script.AppendLine("if not errorlevel 1 (");
+        script.AppendLine("    timeout /t 1 /nobreak >nul");
+        script.AppendLine("    goto wait");
+        script.AppendLine(")");
         script.AppendLine("echo 正在安装更新...");
-        script.AppendLine($"xcopy \"{_pendingUpdateDir}\\*\" \"{appDir}\\\" /E /Y /Q >nul 2>&1");
-        script.AppendLine($"if errorlevel 1 (");
-        script.AppendLine($"    echo 更新失败，请手动解压更新包。");
-        script.AppendLine($"    pause");
-        script.AppendLine($"    exit /b 1");
-        script.AppendLine($")");
+        script.AppendLine($"xcopy \"{escapedUpdateDir}\\*\" \"{escapedAppDir}\\\" /E /Y /Q >nul 2>&1");
+        script.AppendLine("if errorlevel 1 (");
+        script.AppendLine("    echo 更新失败，请手动解压更新包。");
+        script.AppendLine("    pause");
+        script.AppendLine("    exit /b 1");
+        script.AppendLine(")");
         script.AppendLine("echo 更新完成，正在重启...");
-        script.AppendLine($"start \"\" \"{Path.Combine(appDir, exeName)}\"");
-        script.AppendLine($"cd /d \"%TEMP%\"");
-        script.AppendLine($"rd /s /q \"{tempDir}\" >nul 2>&1");
+        script.AppendLine($"start \"\" \"{escapedExePath}\"");
+        script.AppendLine("cd /d \"%TEMP%\"");
+        script.AppendLine($"rd /s /q \"{escapedTempDir}\" >nul 2>&1");
 
-        File.WriteAllText(scriptPath, script.ToString(), Encoding.UTF8);
+        File.WriteAllText(scriptPath, script.ToString(), new UTF8Encoding(false));
 
         Process.Start(new ProcessStartInfo
         {

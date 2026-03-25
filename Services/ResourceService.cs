@@ -39,12 +39,9 @@ public class ResourceService : IDisposable
 
     public ResourceService()
     {
-        _httpClient = new HttpClient();
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("EndFieldFightHelper/1.0");
     }
-
-    private string ApplyMirror(string url) =>
-        GitHubMirrorHelper.ApplyMirror(url, GitHubMirrorPrefix);
 
     public bool CheckResourcesExist()
     {
@@ -83,21 +80,37 @@ public class ResourceService : IDisposable
     {
         try
         {
-            var response = await _httpClient.GetAsync(ApplyMirror(CommitsApiUrl), ct);
+            using var response = await GitHubMirrorHelper.GetWithFallbackAsync(
+                _httpClient, CommitsApiUrl, GitHubMirrorPrefix,
+                HttpCompletionOption.ResponseContentRead, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                return (false, "", "API 请求被拒绝（可能是请求频率超限，请稍后再试）");
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return (false, "", "检查更新失败: 远程仓库不存在或无法访问");
+
             response.EnsureSuccessStatusCode();
 
             using var doc = await JsonDocument.ParseAsync(
                 await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
 
             var commits = doc.RootElement;
-            if (commits.GetArrayLength() == 0)
+            if (commits.ValueKind != JsonValueKind.Array || commits.GetArrayLength() == 0)
                 return (false, "", "检查更新失败: 未找到远程提交记录");
 
-            var latestSha = commits[0].GetProperty("sha").GetString() ?? "";
-            var commitMessage = commits[0]
-                .GetProperty("commit")
-                .GetProperty("message")
-                .GetString() ?? "";
+            var firstCommit = commits[0];
+            if (!firstCommit.TryGetProperty("sha", out var shaProp))
+                return (false, "", "检查更新失败: 响应格式异常（缺少 sha 字段）");
+
+            var latestSha = shaProp.GetString() ?? "";
+
+            var commitMessage = "";
+            if (firstCommit.TryGetProperty("commit", out var commitObj)
+                && commitObj.TryGetProperty("message", out var msgProp))
+            {
+                commitMessage = msgProp.GetString() ?? "";
+            }
 
             var local = LoadMetadata();
             if (local == null || string.IsNullOrEmpty(local.CommitSha))
@@ -106,6 +119,14 @@ public class ResourceService : IDisposable
             var hasUpdate = !string.Equals(local.CommitSha, latestSha, StringComparison.OrdinalIgnoreCase);
             return (hasUpdate, latestSha, commitMessage);
         }
+        catch (HttpRequestException ex)
+        {
+            return (false, "", $"检查更新失败: 网络错误 ({ex.Message})");
+        }
+        catch (JsonException ex)
+        {
+            return (false, "", $"检查更新失败: 响应解析错误 ({ex.Message})");
+        }
         catch (Exception ex)
         {
             return (false, "", $"检查更新失败: {ex.Message}");
@@ -113,6 +134,7 @@ public class ResourceService : IDisposable
     }
 
     public async Task DownloadResourcesAsync(
+        string? commitSha = null,
         IProgress<(string Status, double Percent)>? progress = null,
         CancellationToken ct = default)
     {
@@ -124,11 +146,16 @@ public class ResourceService : IDisposable
         {
             Directory.CreateDirectory(tempDir);
 
-            progress?.Report(("正在获取版本信息...", 0));
-            var (_, latestSha, _) = await CheckForUpdateAsync(ct);
+            var latestSha = commitSha;
+            if (string.IsNullOrEmpty(latestSha))
+            {
+                progress?.Report(("正在获取版本信息...", 0));
+                (_, latestSha, _) = await CheckForUpdateAsync(ct);
+            }
 
             progress?.Report(("正在下载资源包...", 5));
-            using (var response = await _httpClient.GetAsync(ApplyMirror(ZipDownloadUrl),
+            using (var response = await GitHubMirrorHelper.GetWithFallbackAsync(
+                       _httpClient, ZipDownloadUrl, GitHubMirrorPrefix,
                        HttpCompletionOption.ResponseHeadersRead, ct))
             {
                 response.EnsureSuccessStatusCode();
@@ -177,12 +204,36 @@ public class ResourceService : IDisposable
 
             progress?.Report(("正在同步文件...", 85));
 
+            var stagingPath = ResourceBasePath + ".new";
+            var backupPath = ResourceBasePath + ".old";
+
+            if (Directory.Exists(stagingPath))
+                Directory.Delete(stagingPath, true);
+            if (Directory.Exists(backupPath))
+                Directory.Delete(backupPath, true);
+
+            Directory.CreateDirectory(stagingPath);
+            CopyDirectory(sourcePath, stagingPath);
+
             if (Directory.Exists(ResourceBasePath))
-                Directory.Delete(ResourceBasePath, true);
+                Directory.Move(ResourceBasePath, backupPath);
 
-            Directory.CreateDirectory(ResourceBasePath);
+            try
+            {
+                Directory.Move(stagingPath, ResourceBasePath);
+            }
+            catch
+            {
+                if (!Directory.Exists(ResourceBasePath) && Directory.Exists(backupPath))
+                    Directory.Move(backupPath, ResourceBasePath);
+                throw;
+            }
 
-            CopyDirectory(sourcePath, ResourceBasePath);
+            if (Directory.Exists(backupPath))
+            {
+                try { Directory.Delete(backupPath, true); }
+                catch { /* best effort */ }
+            }
 
             progress?.Report(("正在保存版本信息...", 95));
             SaveMetadata(new ResourceMetadata
