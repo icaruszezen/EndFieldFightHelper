@@ -49,8 +49,6 @@ public sealed class OverlayService : IDisposable
             {
                 window.Show();
             }
-
-            ApplyWindowStyles(window);
         });
     }
 

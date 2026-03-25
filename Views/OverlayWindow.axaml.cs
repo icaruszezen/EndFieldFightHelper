@@ -64,6 +64,12 @@ public partial class OverlayWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_previousVm != null)
+        {
+            _previousVm.LogMessages.CollectionChanged -= OnLogMessagesChanged;
+            _previousVm = null;
+        }
+
         RemoveHitTestHook();
         base.OnClosed(e);
     }

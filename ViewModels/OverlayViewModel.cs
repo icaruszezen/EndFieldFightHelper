@@ -20,6 +20,7 @@ public partial class OverlayViewModel : ViewModelBase, IDisposable
 
     private List<OverlayBattleAction>? _battleActions;
     private Stopwatch? _axisStopwatch;
+    private Func<double>? _externalTimeSource;
     private Timer? _axisTimer;
 
     [ObservableProperty]
@@ -123,12 +124,13 @@ public partial class OverlayViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public void StartAxisPlayback(List<OverlayBattleAction> actions)
+    public void StartAxisPlayback(List<OverlayBattleAction> actions, Func<double>? timeSource = null)
     {
         _axisTimer?.Dispose();
 
         _battleActions = actions.OrderBy(a => a.StartTime).ToList();
-        _axisStopwatch = Stopwatch.StartNew();
+        _externalTimeSource = timeSource;
+        _axisStopwatch = timeSource == null ? Stopwatch.StartNew() : null;
         IsAxisPlaying = true;
         BattleAxisElapsedSeconds = 0;
         CurrentActionText = "";
@@ -143,6 +145,7 @@ public partial class OverlayViewModel : ViewModelBase, IDisposable
         _axisTimer = null;
         _axisStopwatch?.Stop();
         _axisStopwatch = null;
+        _externalTimeSource = null;
         IsAxisPlaying = false;
         BattleAxisElapsedSeconds = 0;
         CurrentActionText = "";
@@ -151,11 +154,14 @@ public partial class OverlayViewModel : ViewModelBase, IDisposable
 
     private void TickAxis(object? state)
     {
-        var stopwatch = _axisStopwatch;
         var actions = _battleActions;
-        if (stopwatch == null || actions == null) return;
+        if (actions == null) return;
 
-        var elapsed = stopwatch.Elapsed.TotalSeconds;
+        var timeSource = _externalTimeSource;
+        var stopwatch = _axisStopwatch;
+        if (timeSource == null && stopwatch == null) return;
+
+        var elapsed = timeSource?.Invoke() ?? stopwatch!.Elapsed.TotalSeconds;
 
         var current = actions
             .Where(a => a.StartTime <= elapsed && a.StartTime + a.Duration > elapsed)
@@ -212,8 +218,7 @@ public partial class OverlayViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         _pipelineRefreshTimer?.Dispose();
-        _axisTimer?.Dispose();
-        _axisStopwatch?.Stop();
+        StopAxisPlayback();
     }
 }
 

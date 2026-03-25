@@ -31,6 +31,7 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
 
     private CancellationTokenSource? _cts;
     private Task? _axisTask;
+    private Stopwatch? _loopStopwatch;
 
     private long _eventCount;
     private long _lastSkillTimestamp;
@@ -57,6 +58,7 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
 
     public long EventCount => Volatile.Read(ref _eventCount);
     public long LastSkillTimestamp => Volatile.Read(ref _lastSkillTimestamp);
+    public double ElapsedSeconds => _loopStopwatch?.Elapsed.TotalSeconds ?? 0;
 
     string IPipelineStatusProvider.PipelineName => "自动打轴";
     string? IPipelineStatusProvider.LastErrorMessage => _lastErrorMessage;
@@ -115,6 +117,8 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
         _cts.Dispose();
         _cts = null;
         _axisTask = null;
+        _loopStopwatch?.Stop();
+        _loopStopwatch = null;
         _currentStatus = "";
 
         Log?.Invoke("自动打轴线程已停止");
@@ -128,8 +132,8 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
     private async Task AxisLoop(IntPtr hWnd, List<AxisTimelineEvent> events,
         Func<string, int?> slotMapper, CancellationToken token)
     {
-        var stopwatch = new Stopwatch();
-        stopwatch.Start();
+        _loopStopwatch = new Stopwatch();
+        _loopStopwatch.Start();
         var eventIndex = 0;
         _activeCharacterId = null;
 
@@ -144,13 +148,13 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
                 if (pauseMs > 0)
                 {
                     _currentStatus = "暂停中";
-                    stopwatch.Stop();
+                    _loopStopwatch.Stop();
                     await Task.Delay(pauseMs, token);
-                    stopwatch.Start();
+                    _loopStopwatch.Start();
                     _currentStatus = "运行中";
                 }
 
-                var elapsed = stopwatch.Elapsed.TotalSeconds;
+                var elapsed = _loopStopwatch.Elapsed.TotalSeconds;
                 var nextEvent = events[eventIndex];
 
                 if (elapsed < nextEvent.Time)
@@ -159,7 +163,7 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
                     continue;
                 }
 
-                await ExecuteEventAsync(hWnd, nextEvent, slotMapper, stopwatch, token);
+                await ExecuteEventAsync(hWnd, nextEvent, slotMapper, _loopStopwatch, token);
                 Interlocked.Increment(ref _eventCount);
                 eventIndex++;
             }

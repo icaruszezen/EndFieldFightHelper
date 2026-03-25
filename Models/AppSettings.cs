@@ -10,7 +10,6 @@ public class AppSettings
     public bool IsDarkTheme { get; set; } = false;
     public string ThemeColorName { get; set; } = "Orange";
     public bool OverlayEnabled { get; set; } = false;
-    public bool OverlayClickThrough { get; set; } = true;
     public double OverlayX { get; set; } = OverlayDefaults.X;
     public double OverlayY { get; set; } = OverlayDefaults.Y;
     public double OverlayWidth { get; set; } = OverlayDefaults.Width;

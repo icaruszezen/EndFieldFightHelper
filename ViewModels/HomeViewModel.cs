@@ -377,7 +377,12 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
 
         var actions = BuildOverlayBattleActions();
         if (actions.Count > 0)
-            _overlayViewModel.StartAxisPlayback(actions);
+        {
+            Func<double>? timeSource = IsAutoAxisEnabled
+                ? () => _autoAxisService.ElapsedSeconds
+                : null;
+            _overlayViewModel.StartAxisPlayback(actions, timeSource);
+        }
     }
 
     private List<OverlayBattleAction> BuildOverlayBattleActions()
@@ -803,6 +808,7 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
         _autoAttackService.Dispose();
         _autoDodgeService.Dispose();
         _pipelineService.Dispose();
+        _overlayViewModel.Dispose();
         _previewTimer?.Dispose();
         _previewTimer = null;
         PreviewImage?.Dispose();
