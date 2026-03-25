@@ -260,6 +260,10 @@ public static class Win32Helper
 
     public const int SM_CXSCREEN = 0;
     public const int SM_CYSCREEN = 1;
+    public const int SM_XVIRTUALSCREEN = 76;
+    public const int SM_YVIRTUALSCREEN = 77;
+    public const int SM_CXVIRTUALSCREEN = 78;
+    public const int SM_CYVIRTUALSCREEN = 79;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
@@ -313,6 +317,7 @@ public static class Win32Helper
     public const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     public const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
     public const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+    public const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
     public const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
 
     public const uint KEYEVENTF_KEYDOWN = 0x0000;
@@ -349,16 +354,14 @@ public static class Win32Helper
         return new IntPtr((high << 16) | (low & 0xFFFF));
     }
 
-    public static IntPtr MakeKeyLParam(int repeatCount, uint scanCode, bool isExtended, bool isUp)
+    public static IntPtr MakeKeyLParam(int repeatCount, uint scanCode, bool isExtended, bool isUp,
+        bool previousKeyDown = false)
     {
         uint lParam = (uint)(repeatCount & 0xFFFF);
         lParam |= (scanCode & 0xFF) << 16;
         if (isExtended) lParam |= 1u << 24;
-        if (isUp)
-        {
-            lParam |= 1u << 30;
-            lParam |= 1u << 31;
-        }
+        if (previousKeyDown || isUp) lParam |= 1u << 30;
+        if (isUp) lParam |= 1u << 31;
         return new IntPtr((int)lParam);
     }
 

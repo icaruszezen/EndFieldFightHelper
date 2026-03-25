@@ -96,6 +96,9 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
         SettingsViewModel.ResourcesDownloaded += OnResourcesDownloaded;
 
+        inputService.Method = SettingsViewModel.SelectedInputMethod;
+        SettingsViewModel.InputMethodChanged += method => inputService.Method = method;
+
         SettingsViewModel.CaptureMethodChanged += method =>
         {
             ScreenshotViewModel.SetCaptureMethod(method);

@@ -8,6 +8,9 @@ namespace EndFieldFightHelper.Services;
 
 public class InputService : IInputService
 {
+    private const int KeyRepeatThresholdMs = 100;
+    private const int KeyRepeatIntervalMs = 33;
+
     public InputMethod Method { get; set; } = InputMethod.PostMessage;
 
     public void SendKeyDown(IntPtr hWnd, int vkCode)
@@ -29,7 +32,26 @@ public class InputService : IInputService
     public async Task SendKeyPressAsync(IntPtr hWnd, int vkCode, int holdMs = 50)
     {
         SendKeyDown(hWnd, vkCode);
-        await Task.Delay(holdMs);
+
+        if (Method == InputMethod.PostMessage && holdMs > KeyRepeatThresholdMs)
+        {
+            var elapsed = 0;
+            while (elapsed + KeyRepeatIntervalMs < holdMs)
+            {
+                await Task.Delay(KeyRepeatIntervalMs);
+                elapsed += KeyRepeatIntervalMs;
+                PostMessageKeyDownRepeat(hWnd, vkCode);
+            }
+
+            var remaining = holdMs - elapsed;
+            if (remaining > 0)
+                await Task.Delay(remaining);
+        }
+        else
+        {
+            await Task.Delay(holdMs);
+        }
+
         SendKeyUp(hWnd, vkCode);
     }
 
@@ -87,6 +109,13 @@ public class InputService : IInputService
     {
         var scanCode = Win32Helper.MapVirtualKey((uint)vkCode, Win32Helper.MAPVK_VK_TO_VSC);
         var lParam = Win32Helper.MakeKeyLParam(1, scanCode, false, false);
+        Win32Helper.PostMessage(hWnd, Win32Helper.WM_KEYDOWN, (IntPtr)vkCode, lParam);
+    }
+
+    private static void PostMessageKeyDownRepeat(IntPtr hWnd, int vkCode)
+    {
+        var scanCode = Win32Helper.MapVirtualKey((uint)vkCode, Win32Helper.MAPVK_VK_TO_VSC);
+        var lParam = Win32Helper.MakeKeyLParam(1, scanCode, false, false, previousKeyDown: true);
         Win32Helper.PostMessage(hWnd, Win32Helper.WM_KEYDOWN, (IntPtr)vkCode, lParam);
     }
 
@@ -173,7 +202,7 @@ public class InputService : IInputService
 
     private static void SendInputMouseDown(IntPtr hWnd, MouseButton button, int x, int y)
     {
-        MoveMouseToClientPos(hWnd, x, y);
+        var moveInput = MakeAbsoluteMoveInput(hWnd, x, y);
         var flags = button switch
         {
             MouseButton.Left => Win32Helper.MOUSEEVENTF_LEFTDOWN,
@@ -181,7 +210,7 @@ public class InputService : IInputService
             MouseButton.Middle => Win32Helper.MOUSEEVENTF_MIDDLEDOWN,
             _ => Win32Helper.MOUSEEVENTF_LEFTDOWN
         };
-        var input = new Win32Helper.INPUT
+        var clickInput = new Win32Helper.INPUT
         {
             Type = Win32Helper.INPUT_MOUSE,
             U = new Win32Helper.INPUTUNION
@@ -189,12 +218,12 @@ public class InputService : IInputService
                 Mouse = new Win32Helper.MOUSEINPUT { dwFlags = flags }
             }
         };
-        Win32Helper.SendInput(1, new[] { input }, Marshal.SizeOf<Win32Helper.INPUT>());
+        Win32Helper.SendInput(2, new[] { moveInput, clickInput }, Marshal.SizeOf<Win32Helper.INPUT>());
     }
 
     private static void SendInputMouseUp(IntPtr hWnd, MouseButton button, int x, int y)
     {
-        MoveMouseToClientPos(hWnd, x, y);
+        var moveInput = MakeAbsoluteMoveInput(hWnd, x, y);
         var flags = button switch
         {
             MouseButton.Left => Win32Helper.MOUSEEVENTF_LEFTUP,
@@ -202,7 +231,7 @@ public class InputService : IInputService
             MouseButton.Middle => Win32Helper.MOUSEEVENTF_MIDDLEUP,
             _ => Win32Helper.MOUSEEVENTF_LEFTUP
         };
-        var input = new Win32Helper.INPUT
+        var releaseInput = new Win32Helper.INPUT
         {
             Type = Win32Helper.INPUT_MOUSE,
             U = new Win32Helper.INPUTUNION
@@ -210,12 +239,13 @@ public class InputService : IInputService
                 Mouse = new Win32Helper.MOUSEINPUT { dwFlags = flags }
             }
         };
-        Win32Helper.SendInput(1, new[] { input }, Marshal.SizeOf<Win32Helper.INPUT>());
+        Win32Helper.SendInput(2, new[] { moveInput, releaseInput }, Marshal.SizeOf<Win32Helper.INPUT>());
     }
 
     private static void SendInputMouseMove(IntPtr hWnd, int x, int y)
     {
-        MoveMouseToClientPos(hWnd, x, y);
+        var moveInput = MakeAbsoluteMoveInput(hWnd, x, y);
+        Win32Helper.SendInput(1, new[] { moveInput }, Marshal.SizeOf<Win32Helper.INPUT>());
     }
 
     public void SendRelativeMouseMove(int dx, int dy)
@@ -251,18 +281,20 @@ public class InputService : IInputService
         }
     }
 
-    private static void MoveMouseToClientPos(IntPtr hWnd, int x, int y)
+    private static Win32Helper.INPUT MakeAbsoluteMoveInput(IntPtr hWnd, int x, int y)
     {
         var pt = new Win32Helper.POINT { X = x, Y = y };
         Win32Helper.ClientToScreen(hWnd, ref pt);
 
-        var screenWidth = Win32Helper.GetSystemMetrics(Win32Helper.SM_CXSCREEN);
-        var screenHeight = Win32Helper.GetSystemMetrics(Win32Helper.SM_CYSCREEN);
+        var virtualLeft = Win32Helper.GetSystemMetrics(Win32Helper.SM_XVIRTUALSCREEN);
+        var virtualTop = Win32Helper.GetSystemMetrics(Win32Helper.SM_YVIRTUALSCREEN);
+        var virtualWidth = Win32Helper.GetSystemMetrics(Win32Helper.SM_CXVIRTUALSCREEN);
+        var virtualHeight = Win32Helper.GetSystemMetrics(Win32Helper.SM_CYVIRTUALSCREEN);
 
-        var absoluteX = (int)((pt.X * 65535.0) / screenWidth);
-        var absoluteY = (int)((pt.Y * 65535.0) / screenHeight);
+        var absoluteX = (int)(((pt.X - virtualLeft) * 65535.0) / virtualWidth);
+        var absoluteY = (int)(((pt.Y - virtualTop) * 65535.0) / virtualHeight);
 
-        var input = new Win32Helper.INPUT
+        return new Win32Helper.INPUT
         {
             Type = Win32Helper.INPUT_MOUSE,
             U = new Win32Helper.INPUTUNION
@@ -271,11 +303,12 @@ public class InputService : IInputService
                 {
                     dx = absoluteX,
                     dy = absoluteY,
-                    dwFlags = Win32Helper.MOUSEEVENTF_MOVE | Win32Helper.MOUSEEVENTF_ABSOLUTE
+                    dwFlags = Win32Helper.MOUSEEVENTF_MOVE
+                             | Win32Helper.MOUSEEVENTF_ABSOLUTE
+                             | Win32Helper.MOUSEEVENTF_VIRTUALDESK
                 }
             }
         };
-        Win32Helper.SendInput(1, new[] { input }, Marshal.SizeOf<Win32Helper.INPUT>());
     }
 
     #endregion

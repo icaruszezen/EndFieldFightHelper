@@ -6,6 +6,7 @@ public class AppSettings
 
     public int Version { get; set; }
     public CaptureMethod DefaultCaptureMethod { get; set; } = CaptureMethod.PrintWindow;
+    public InputMethod DefaultInputMethod { get; set; } = InputMethod.PostMessage;
     public bool IsDarkTheme { get; set; } = false;
     public string ThemeColorName { get; set; } = "Orange";
     public bool OverlayEnabled { get; set; } = false;

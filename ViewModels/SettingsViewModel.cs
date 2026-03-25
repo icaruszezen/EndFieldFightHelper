@@ -51,6 +51,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     private OverlayContentSettings _overlayContentSettings = new();
 
     [ObservableProperty]
+    private InputMethod _selectedInputMethod = InputMethod.PostMessage;
+
+    [ObservableProperty]
     private CaptureMethod _selectedMethod = CaptureMethod.PrintWindow;
 
     [ObservableProperty]
@@ -169,10 +172,19 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     public ObservableCollection<SukiColorTheme> AvailableColorThemes { get; } = new();
     public ObservableCollection<GpuDeviceInfo> InferenceDevices { get; } = new();
 
+    public event Action<InputMethod>? InputMethodChanged;
     public event Action<CaptureMethod>? CaptureMethodChanged;
     public event Action? YoloSettingsChanged;
     public event Action<int>? CaptureFrameRateLimitChanged;
     public event Action? ResourcesDownloaded;
+
+    public string PostMessageDescription =>
+        "通过 PostMessage 向游戏窗口发送消息。支持后台操作（游戏不在前台也有效），" +
+        "适用于窗口化和无边框全屏模式，但在独占全屏模式下可能无效。";
+
+    public string SendInputDescription =>
+        "通过 SendInput 模拟硬件输入。需要游戏窗口在前台，" +
+        "兼容所有窗口模式（包括独占全屏），但操作时无法使用其他程序。";
 
     public string PrintWindowDescription =>
         "PrintWindow 是 Windows API，可以截取被其他窗口遮挡的窗口内容。" +
@@ -250,6 +262,12 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         {
             AvailableColorThemes.Add(theme);
         }
+    }
+
+    partial void OnSelectedInputMethodChanged(InputMethod value)
+    {
+        InputMethodChanged?.Invoke(value);
+        if (!_isLoading) ScheduleSave();
     }
 
     partial void OnSelectedMethodChanged(CaptureMethod value)
@@ -426,6 +444,17 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand]
+    private void SetInputMethod(string method)
+    {
+        SelectedInputMethod = method switch
+        {
+            "PostMessage" => InputMethod.PostMessage,
+            "SendInput" => InputMethod.SendInput,
+            _ => SelectedInputMethod
+        };
+    }
+
+    [RelayCommand]
     private void SetMethod(string method)
     {
         SelectedMethod = method switch
@@ -494,6 +523,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
 
     private void ApplyLoadedSettings(AppSettings settings)
     {
+        SelectedInputMethod = settings.DefaultInputMethod;
         SelectedMethod = settings.DefaultCaptureMethod;
         IsDarkTheme = settings.IsDarkTheme;
         OverlayEnabled = settings.OverlayEnabled;
@@ -584,6 +614,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             var settings = new AppSettings
             {
                 Version = AppSettings.CurrentVersion,
+                DefaultInputMethod = SelectedInputMethod,
                 DefaultCaptureMethod = SelectedMethod,
                 IsDarkTheme = IsDarkTheme,
                 ThemeColorName = SelectedColorTheme?.DisplayName ?? "Orange",
