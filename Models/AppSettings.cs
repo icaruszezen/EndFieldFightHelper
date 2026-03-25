@@ -2,6 +2,9 @@ namespace EndFieldFightHelper.Models;
 
 public class AppSettings
 {
+    public const int CurrentVersion = 1;
+
+    public int Version { get; set; }
     public CaptureMethod DefaultCaptureMethod { get; set; } = CaptureMethod.PrintWindow;
     public bool IsDarkTheme { get; set; } = false;
     public string ThemeColorName { get; set; } = "Orange";

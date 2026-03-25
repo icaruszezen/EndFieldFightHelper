@@ -85,7 +85,7 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
     public async Task ReloadCharactersAsync()
     {
         foreach (var c in AllCharacters)
-            c.AvatarImage?.Dispose();
+            c.Dispose();
         AllCharacters.Clear();
 
         await LoadCharactersAsync();
@@ -559,7 +559,7 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
         _saveCts?.Cancel();
         _saveCts?.Dispose();
         foreach (var c in AllCharacters)
-            c.AvatarImage?.Dispose();
+            c.Dispose();
         AllCharacters.Clear();
     }
 }

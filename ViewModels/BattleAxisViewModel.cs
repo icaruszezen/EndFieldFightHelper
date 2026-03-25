@@ -564,6 +564,9 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
     {
         _saveCts?.Cancel();
         _saveCts?.Dispose();
+        foreach (var (_, _, _, avatar) in _characterMap.Values)
+            avatar?.Dispose();
+        _characterMap.Clear();
     }
 }
 

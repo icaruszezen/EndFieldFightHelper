@@ -449,7 +449,11 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             }
         }
 
-        events.Sort((a, b) => a.Time.CompareTo(b.Time));
+        events.Sort((a, b) =>
+        {
+            var cmp = a.Time.CompareTo(b.Time);
+            return cmp != 0 ? cmp : a.Type.CompareTo(b.Type);
+        });
         return events;
     }
 

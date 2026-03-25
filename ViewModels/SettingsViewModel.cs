@@ -465,47 +465,8 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 var settings = JsonSerializer.Deserialize<AppSettings>(json);
                 if (settings != null)
                 {
-                    SelectedMethod = settings.DefaultCaptureMethod;
-                    IsDarkTheme = settings.IsDarkTheme;
-                    OverlayEnabled = settings.OverlayEnabled;
-                    OverlayX = settings.OverlayX;
-                    OverlayY = settings.OverlayY;
-                    OverlayWidth = settings.OverlayWidth;
-                    OverlayHeight = settings.OverlayHeight;
-                    OverlayOpacity = settings.OverlayOpacity;
-                    CloseAction = settings.CloseAction;
-                    YoloModelPath = settings.YoloModelPath;
-                    YoloConfidence = settings.YoloConfidence;
-                    YoloIoU = settings.YoloIoU;
-                    SelectedFrameRateLimit = FrameRateLimitOptions.FirstOrDefault(o => o.Value == settings.CaptureFrameRateLimit)
-                                             ?? FrameRateLimitOptions[1];
-
-                    var savedDeviceId = string.Equals(settings.GpuMode, "directml", StringComparison.OrdinalIgnoreCase)
-                        ? settings.GpuDeviceId
-                        : -1;
-                    SelectedInferenceDevice = InferenceDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId)
-                                              ?? GpuDeviceInfo.CpuDevice;
-
-                    var savedTheme = AvailableColorThemes
-                        .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
-                    SelectedColorTheme = savedTheme ?? (AvailableColorThemes.Count > 0 ? AvailableColorThemes[0] : null);
-
-                    UseGitHubMirror = settings.UseGitHubMirror;
-                    GitHubMirrorUrl = settings.GitHubMirrorUrl;
-                    SelectedMirrorPreset = MirrorPresets.FirstOrDefault(p => !p.IsCustom && p.Url == settings.GitHubMirrorUrl)
-                                           ?? MirrorPresets[^1];
-
-                    _dodgeDelayMs = settings.DodgeDelayMs;
-                    _dodgeSuppressDuringSkill = settings.DodgeSuppressDuringSkill;
-                    _homeAutoDodge = settings.IsAutoDodgeEnabled;
-                    _homeAutoSkill = settings.IsAutoSkillEnabled;
-                    _homeAutoSkillOrder = settings.AutoSkillOrder ?? "";
-                    _homeAutoAttack = settings.IsAutoAttackEnabled;
-                    _homeAutoUltimate = settings.IsAutoUltimateEnabled;
-                    _homeAutoChainSkill = settings.IsAutoChainSkillEnabled;
-                    _homeAutoAxis = settings.IsAutoAxisEnabled;
-                    _homeBattleOverlay = settings.IsBattleOverlayEnabled;
-                    _overlayContentSettings = settings.OverlayContent ?? new OverlayContentSettings();
+                    MigrateSettings(settings, json);
+                    ApplyLoadedSettings(settings);
                 }
             }
             else if (AvailableColorThemes.Count > 0)
@@ -529,6 +490,73 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             ApplyOverlaySettings();
             ApplyMirrorToServices();
         }
+    }
+
+    private void ApplyLoadedSettings(AppSettings settings)
+    {
+        SelectedMethod = settings.DefaultCaptureMethod;
+        IsDarkTheme = settings.IsDarkTheme;
+        OverlayEnabled = settings.OverlayEnabled;
+        OverlayX = settings.OverlayX;
+        OverlayY = settings.OverlayY;
+        OverlayWidth = settings.OverlayWidth;
+        OverlayHeight = settings.OverlayHeight;
+        OverlayOpacity = settings.OverlayOpacity;
+        CloseAction = settings.CloseAction;
+        YoloModelPath = settings.YoloModelPath;
+        YoloConfidence = settings.YoloConfidence;
+        YoloIoU = settings.YoloIoU;
+        SelectedFrameRateLimit = FrameRateLimitOptions.FirstOrDefault(o => o.Value == settings.CaptureFrameRateLimit)
+                                 ?? FrameRateLimitOptions[1];
+
+        var savedDeviceId = string.Equals(settings.GpuMode, "directml", StringComparison.OrdinalIgnoreCase)
+            ? settings.GpuDeviceId
+            : -1;
+        SelectedInferenceDevice = InferenceDevices.FirstOrDefault(d => d.DeviceId == savedDeviceId)
+                                  ?? GpuDeviceInfo.CpuDevice;
+
+        var savedTheme = AvailableColorThemes
+            .FirstOrDefault(t => t.DisplayName == settings.ThemeColorName);
+        SelectedColorTheme = savedTheme ?? (AvailableColorThemes.Count > 0 ? AvailableColorThemes[0] : null);
+
+        UseGitHubMirror = settings.UseGitHubMirror;
+        GitHubMirrorUrl = settings.GitHubMirrorUrl;
+        SelectedMirrorPreset = MirrorPresets.FirstOrDefault(p => !p.IsCustom && p.Url == settings.GitHubMirrorUrl)
+                               ?? MirrorPresets[^1];
+
+        _dodgeDelayMs = settings.DodgeDelayMs;
+        _dodgeSuppressDuringSkill = settings.DodgeSuppressDuringSkill;
+        _homeAutoDodge = settings.IsAutoDodgeEnabled;
+        _homeAutoSkill = settings.IsAutoSkillEnabled;
+        _homeAutoSkillOrder = settings.AutoSkillOrder ?? "";
+        _homeAutoAttack = settings.IsAutoAttackEnabled;
+        _homeAutoUltimate = settings.IsAutoUltimateEnabled;
+        _homeAutoChainSkill = settings.IsAutoChainSkillEnabled;
+        _homeAutoAxis = settings.IsAutoAxisEnabled;
+        _homeBattleOverlay = settings.IsBattleOverlayEnabled;
+        _overlayContentSettings = settings.OverlayContent ?? new OverlayContentSettings();
+    }
+
+    /// <summary>
+    /// Applies sequential migrations when settings were saved by an older version.
+    /// Each migration step handles one version increment; add new cases as needed.
+    /// The raw json parameter is available for future migrations that need to
+    /// manually extract fields whose type has changed.
+    /// </summary>
+    private void MigrateSettings(AppSettings settings, string json)
+    {
+        if (settings.Version >= AppSettings.CurrentVersion)
+            return;
+
+        // Future migration example:
+        // if (settings.Version < 2)
+        // {
+        //     using var doc = JsonDocument.Parse(json);
+        //     // read changed fields from doc and apply to settings
+        // }
+
+        settings.Version = AppSettings.CurrentVersion;
+        ScheduleSave();
     }
 
     private void ScheduleSave()
@@ -555,6 +583,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
             var device = SelectedInferenceDevice;
             var settings = new AppSettings
             {
+                Version = AppSettings.CurrentVersion,
                 DefaultCaptureMethod = SelectedMethod,
                 IsDarkTheme = IsDarkTheme,
                 ThemeColorName = SelectedColorTheme?.DisplayName ?? "Orange",

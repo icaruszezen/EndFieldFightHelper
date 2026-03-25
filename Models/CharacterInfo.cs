@@ -1,9 +1,10 @@
+using System;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace EndFieldFightHelper.Models;
 
-public partial class CharacterInfo : ObservableObject
+public partial class CharacterInfo : ObservableObject, IDisposable
 {
     public string Id { get; init; } = "";
     public string Name { get; init; } = "";
@@ -16,4 +17,10 @@ public partial class CharacterInfo : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+
+    public void Dispose()
+    {
+        AvatarImage?.Dispose();
+        AvatarImage = null;
+    }
 }
