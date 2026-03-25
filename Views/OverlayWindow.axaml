@@ -139,7 +139,7 @@
                                   IsVisible="{Binding ShowLog}">
                         <ItemsControl ItemsSource="{Binding LogMessages}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="x:String">
                                     <TextBlock Text="{Binding}"
                                                Foreground="White"
                                                FontSize="11"

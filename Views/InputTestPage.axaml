@@ -199,7 +199,7 @@
                              ItemsSource="{Binding LogMessages}"
                              MaxHeight="200">
                         <ListBox.ItemTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="x:String">
                                 <SelectableTextBlock Text="{Binding}" FontFamily="Consolas" FontSize="12" />
                             </DataTemplate>
                         </ListBox.ItemTemplate>

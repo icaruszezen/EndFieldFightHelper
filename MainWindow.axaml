@@ -9,7 +9,8 @@
                  x:Class="EndFieldFightHelper.MainWindow"
                  x:DataType="vm:MainWindowViewModel"
                  Title="EndField Fight Helper"
-                 Width="1200" Height="800">
+                 Width="1200" Height="800"
+                 MinWidth="900" MinHeight="600">
     
     <suki:SukiWindow.Hosts>
         <suki:SukiToastHost x:Name="ToastHost" MaxToasts="3" />

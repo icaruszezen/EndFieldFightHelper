@@ -21,6 +21,9 @@
                         <TextBlock Text="战斗辅助总开关" FontSize="18" FontWeight="SemiBold" />
                         <TextBlock Text="开启后将对游戏进行截图与识别，子功能开关才会生效"
                                    Opacity="0.6" FontSize="12" Margin="0,4,0,0" />
+                        <TextBlock Text="提示：请先启动游戏，点击运行将自动搜索 Endfield 窗口"
+                                   FontSize="11" Foreground="#FF9800" Margin="0,4,0,0"
+                                   IsVisible="{Binding !IsWindowBound}" />
                     </StackPanel>
                     <Panel Grid.Column="1">
                         <Button Command="{Binding ToggleBattleAssistCommand}"
@@ -310,7 +313,7 @@
                                       VerticalScrollBarVisibility="Auto">
                             <ItemsControl ItemsSource="{Binding LogMessages}">
                                 <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
+                                    <DataTemplate x:DataType="x:String">
                                         <TextBlock Text="{Binding}"
                                                    FontSize="12"
                                                    FontFamily="Consolas, Courier New, monospace"

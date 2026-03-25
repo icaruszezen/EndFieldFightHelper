@@ -70,6 +70,8 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
 
     public ObservableCollection<BattleAxisPreset> SavedPresets { get; } = [];
 
+    public bool HasSavedPresets => SavedPresets.Count > 0;
+
     [ObservableProperty]
     private BattleAxisPreset? _selectedSavedPreset;
 
@@ -97,6 +99,8 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "EndFieldFightHelper",
             "battleaxis_presets.json");
+
+        SavedPresets.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSavedPresets));
 
         _ = LoadCharacterMapAsync();
         LoadSavedPresets();
