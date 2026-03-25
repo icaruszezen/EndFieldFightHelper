@@ -2,6 +2,13 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="EndFieldFightHelper.Desktop"/>
 
+  <!--
+    requireAdministrator is needed because:
+    1. The target game may run elevated / at high integrity level; UIPI blocks
+       SendInput / PostMessage from a non-elevated helper to an elevated window.
+    2. Self-update writes files back into the installation directory, which may
+       reside under Program Files.
+  -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">

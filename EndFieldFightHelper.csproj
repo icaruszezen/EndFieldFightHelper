@@ -6,6 +6,7 @@
     <SupportedOSPlatformVersion>10.0.18362.0</SupportedOSPlatformVersion>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
+    <!-- Used by: YoloDetectionService.cs, DxgiDesktopDuplicationCapture.cs, WindowsGraphicsCaptureCapture.cs -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

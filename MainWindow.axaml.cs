@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
@@ -43,8 +45,24 @@ public partial class MainWindow : SukiWindow
             Avalonia.Interactivity.RoutingStrategies.Bubble,
             true);
 
-        await _viewModel.SettingsViewModel.CheckResourcesOnStartupAsync();
-        await _viewModel.SettingsViewModel.CheckAppUpdateOnStartupAsync();
+        var tasks = new[]
+        {
+            _viewModel.InitializeAsync(),
+            _viewModel.SettingsViewModel.CheckResourcesOnStartupAsync(),
+            _viewModel.SettingsViewModel.CheckAppUpdateOnStartupAsync()
+        };
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch
+        {
+            foreach (var t in tasks)
+            {
+                if (t.Exception != null)
+                    Debug.WriteLine($"OnLoaded task failed: {t.Exception.InnerException}");
+            }
+        }
     }
 
     private async void OnSideMenuSelectionChanged(object? sender, SelectionChangedEventArgs e)

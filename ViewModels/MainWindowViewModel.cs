@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
@@ -109,8 +111,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         SettingsViewModel.CaptureFrameRateLimitChanged += fps =>
             pipelineService.CaptureFrameIntervalMs = FpsToIntervalMs(fps);
 
-        YoloDetectionViewModel.TryLoadSavedModel(
-            SettingsViewModel.YoloModelPath,
+        YoloDetectionViewModel.SetYoloSettings(
             SettingsViewModel.SelectedInferenceDevice,
             (float)SettingsViewModel.YoloConfidence,
             (float)SettingsViewModel.YoloIoU);
@@ -169,6 +170,15 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         CurrentPage = HomeViewModel;
     }
 
+    public async Task InitializeAsync()
+    {
+        await YoloDetectionViewModel.TryLoadSavedModelAsync(
+            SettingsViewModel.YoloModelPath,
+            SettingsViewModel.SelectedInferenceDevice,
+            (float)SettingsViewModel.YoloConfidence,
+            (float)SettingsViewModel.YoloIoU);
+    }
+
     private async void OnResourcesDownloaded()
     {
         try
@@ -178,24 +188,31 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"资源重载失败: {ex.Message}");
+            Debug.WriteLine($"资源重载失败: {ex.Message}");
         }
     }
 
     public void Dispose()
     {
         SettingsViewModel.ResourcesDownloaded -= OnResourcesDownloaded;
-        OverlayViewModel.Dispose();
-        HomeViewModel.Dispose();
-        BattleAxisViewModel.Dispose();
-        DebugViewModel.Dispose();
-        TaskStatusViewModel.Dispose();
-        TeamSetupViewModel.Dispose();
-        ScreenshotViewModel.Dispose();
-        SettingsViewModel.Dispose();
-        _detectionService.Dispose();
-        _overlayService.Dispose();
-        _resourceService.Dispose();
-        _appUpdateService.Dispose();
+        SafeDispose(OverlayViewModel);
+        SafeDispose(HomeViewModel);
+        SafeDispose(BattleAxisViewModel);
+        SafeDispose(DebugViewModel);
+        SafeDispose(TaskStatusViewModel);
+        SafeDispose(TeamSetupViewModel);
+        SafeDispose(ScreenshotViewModel);
+        SafeDispose(SettingsViewModel);
+        SafeDispose(_detectionService);
+        SafeDispose(_overlayService);
+        SafeDispose(_resourceService);
+        SafeDispose(_appUpdateService);
+    }
+
+    private static void SafeDispose(IDisposable? disposable)
+    {
+        if (disposable == null) return;
+        try { disposable.Dispose(); }
+        catch (Exception ex) { Debug.WriteLine($"Dispose failed for {disposable.GetType().Name}: {ex.Message}"); }
     }
 }

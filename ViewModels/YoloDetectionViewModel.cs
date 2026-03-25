@@ -97,28 +97,29 @@ public partial class YoloDetectionViewModel : ViewModelBase, IDisposable
         _iou = iou;
     }
 
-    public void TryLoadSavedModel(string? modelPath, GpuDeviceInfo? device = null,
+    public async Task TryLoadSavedModelAsync(string? modelPath, GpuDeviceInfo? device = null,
         float confidence = 0.3f, float iou = 0.45f)
     {
         device ??= GpuDeviceInfo.CpuDevice;
         SetYoloSettings(device, confidence, iou);
-        if (!string.IsNullOrEmpty(modelPath) && File.Exists(modelPath))
-        {
-            try
-            {
-                _detectionService.LoadModel(modelPath, device, confidence, iou);
-                IsModelLoaded = true;
-                UpdateModelStatusText();
+        if (string.IsNullOrEmpty(modelPath) || !File.Exists(modelPath))
+            return;
 
-                if (!device.IsCpu && _detectionService.ActiveDevice.IsCpu)
-                    StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
-                else
-                    StatusMessage = "模型已加载，可以开始识别";
-            }
-            catch
-            {
-                ModelStatusText = "未加载模型";
-            }
+        try
+        {
+            await Task.Run(() => _detectionService.LoadModel(modelPath, device, confidence, iou));
+            IsModelLoaded = true;
+            UpdateModelStatusText();
+
+            if (!device.IsCpu && _detectionService.ActiveDevice.IsCpu)
+                StatusMessage = $"GPU 不可用，已回退到 CPU（{_detectionService.GpuFallbackReason}）";
+            else
+                StatusMessage = "模型已加载，可以开始识别";
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"TryLoadSavedModelAsync failed: {ex.Message}");
+            ModelStatusText = "未加载模型";
         }
     }
 
