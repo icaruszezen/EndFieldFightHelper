@@ -22,12 +22,11 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
     private long _battleEnteredTick;
     private long _enterCount;
     private long _exitCount;
+    private int _battleExitGuard;
     private volatile string? _lastErrorMessage;
 
-    private const string ActiveCharLabel = "当前角色";
-    private const string HealthBarLabel = "血条";
     private const int BattleExitDelayMs = 2_000;
-    private const int MarkerLostDebounceFrames = 5;
+    private const int MarkerLostDebounceMs = 200;
     private const int CameraScanDeltaX = 1000;
     private const int ScanWaitMs = 300;
     private const int ScanMoveDurationMs = 1000;
@@ -87,7 +86,7 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
 
     public event Action? BattleEntered;
     public event Action? BattleExited;
-    public event Action? CameraScanStarting;
+    public event Func<Task>? CameraScanStarting;
     public event Action<string>? Log;
 
     public BattleStateService(SharedDetectionState sharedDetection, IInputService inputService)
@@ -109,6 +108,7 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         Volatile.Write(ref _battleEnteredTick, 0);
         Volatile.Write(ref _enterCount, 0);
         Volatile.Write(ref _exitCount, 0);
+        Volatile.Write(ref _battleExitGuard, 0);
 
         _cts = new CancellationTokenSource();
         var token = _cts.Token;
@@ -138,7 +138,7 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         _cts = null;
         _monitorTask = null;
 
-        if (wasActive)
+        if (wasActive && Interlocked.CompareExchange(ref _battleExitGuard, 1, 0) == 0)
             BattleExited?.Invoke();
 
         Log?.Invoke("战斗状态监控线程已停止");
@@ -148,7 +148,7 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
     {
         long lastSeenId = 0;
         var wasBothVisible = false;
-        var markerLostFrames = 0;
+        long markerLostTick = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -167,9 +167,9 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                 var hasHealthBar = false;
                 foreach (var result in latest.Value.results)
                 {
-                    if (!hasActiveChar && result.Name.Contains(ActiveCharLabel, StringComparison.OrdinalIgnoreCase))
+                    if (!hasActiveChar && result.Name.Contains(YoloLabels.ActiveCharacter, StringComparison.OrdinalIgnoreCase))
                         hasActiveChar = true;
-                    if (!hasHealthBar && result.Name.Contains(HealthBarLabel, StringComparison.OrdinalIgnoreCase))
+                    if (!hasHealthBar && result.Name.Contains(YoloLabels.HealthBar, StringComparison.OrdinalIgnoreCase))
                         hasHealthBar = true;
                     if (hasActiveChar && hasHealthBar)
                         break;
@@ -178,12 +178,15 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                 var hasBothMarkers = hasActiveChar && hasHealthBar;
                 if (hasBothMarkers)
                 {
-                    markerLostFrames = 0;
+                    markerLostTick = 0;
                     _areBothMarkersVisible = true;
                 }
-                else if (++markerLostFrames >= MarkerLostDebounceFrames)
+                else
                 {
-                    _areBothMarkersVisible = false;
+                    if (markerLostTick == 0)
+                        markerLostTick = Environment.TickCount64;
+                    if (Environment.TickCount64 - markerLostTick >= MarkerLostDebounceMs)
+                        _areBothMarkersVisible = false;
                 }
 
                 if (hasBothMarkers)
@@ -193,6 +196,7 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                     if (!_isBattleActive)
                     {
                         _isBattleActive = true;
+                        Volatile.Write(ref _battleExitGuard, 0);
                         Volatile.Write(ref _battleEnteredTick, Environment.TickCount64);
                         Interlocked.Increment(ref _enterCount);
                         wasBothVisible = true;
@@ -217,12 +221,18 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                     if (elapsed >= BattleExitDelayMs)
                     {
                         Log?.Invoke($"标记丢失超过 {BattleExitDelayMs / 1000}s，开始视角扫描...");
-                        CameraScanStarting?.Invoke();
+                        var scanHandler = CameraScanStarting;
+                        if (scanHandler != null)
+                        {
+                            foreach (var handler in scanHandler.GetInvocationList())
+                                await ((Func<Task>)handler).Invoke();
+                        }
 
                         var foundEnemy = await PerformCameraScanAsync(token);
                         if (foundEnemy)
                         {
                             Volatile.Write(ref _lastBothDetectedTick, Environment.TickCount64);
+                            Volatile.Write(ref _battleExitGuard, 0);
                             wasBothVisible = false;
                             Log?.Invoke("视角扫描发现敌人血条，继续战斗");
                             BattleEntered?.Invoke();
@@ -233,7 +243,8 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                             _areBothMarkersVisible = false;
                             Interlocked.Increment(ref _exitCount);
                             Log?.Invoke("视角扫描未发现敌人，退出战斗状态");
-                            BattleExited?.Invoke();
+                            if (Interlocked.CompareExchange(ref _battleExitGuard, 1, 0) == 0)
+                                BattleExited?.Invoke();
                         }
                     }
                 }
@@ -256,23 +267,24 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         _isScanning = true;
         try
         {
-            // Scan left
+            var preFrameId = _sharedDetection.FrameId;
+
             await _inputService.SimulateRelativeMouseMoveAsync(
                 -CameraScanDeltaX, 0, ScanMoveDurationMs, ScanMoveSteps);
             await Task.Delay(ScanWaitMs, token);
 
-            if (CheckForHealthBar())
+            if (await CheckForHealthBarAsync(preFrameId, token))
                 return true;
 
-            // Scan right (past center to the other side)
+            preFrameId = _sharedDetection.FrameId;
+
             await _inputService.SimulateRelativeMouseMoveAsync(
                 CameraScanDeltaX * 2, 0, ScanMoveDurationMs, ScanMoveSteps);
             await Task.Delay(ScanWaitMs, token);
 
-            if (CheckForHealthBar())
+            if (await CheckForHealthBarAsync(preFrameId, token))
                 return true;
 
-            // Return to center
             await _inputService.SimulateRelativeMouseMoveAsync(
                 -CameraScanDeltaX, 0, ScanMoveDurationMs, ScanMoveSteps);
 
@@ -284,16 +296,29 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         }
     }
 
-    private bool CheckForHealthBar()
+    private async Task<bool> CheckForHealthBarAsync(long afterFrameId, CancellationToken token)
     {
-        var latest = _sharedDetection.GetLatest(0);
-        if (latest == null) return false;
+        const int maxWaitMs = 500;
+        var deadline = Environment.TickCount64 + maxWaitMs;
 
-        foreach (var result in latest.Value.results)
+        while (Environment.TickCount64 < deadline)
         {
-            if (result.Name.Contains(HealthBarLabel, StringComparison.OrdinalIgnoreCase))
-                return true;
+            token.ThrowIfCancellationRequested();
+
+            var latest = _sharedDetection.GetLatest(afterFrameId);
+            if (latest != null)
+            {
+                foreach (var result in latest.Value.results)
+                {
+                    if (result.Name.Contains(YoloLabels.HealthBar, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+                return false;
+            }
+
+            await Task.Delay(10, token);
         }
+
         return false;
     }
 

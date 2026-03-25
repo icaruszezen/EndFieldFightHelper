@@ -475,9 +475,9 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             _autoAxisService.RequestPause(200);
     }
 
-    private void OnCameraScanStarting()
+    private async Task OnCameraScanStarting()
     {
-        Dispatcher.UIThread.Post(() =>
+        await Dispatcher.UIThread.InvokeAsync(() =>
         {
             _autoDodgeService.Stop();
             _autoAttackService.Stop();

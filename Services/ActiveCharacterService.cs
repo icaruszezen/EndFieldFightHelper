@@ -62,10 +62,10 @@ public sealed class ActiveCharacterService : IDisposable, IPipelineStatusProvide
 
     public event Action<string>? Log;
 
-    private const string ActiveCharLabel = "当前角色";
-    private const string UltimateChargeLabel = "终结技充能";
     private const int RefWidth = 1920;
     private const int RefHeight = 1080;
+    private const double ExpectedAspectRatio = 16.0 / 9.0;
+    private const double AspectRatioTolerance = 0.05;
 
     private static readonly (int X, int Y, int W, int H)[] SlotRegions =
     [
@@ -154,10 +154,16 @@ public sealed class ActiveCharacterService : IDisposable, IPipelineStatusProvide
                         continue;
                     }
 
-                    _scaleX = frame.Value.image.Width / (double)RefWidth;
-                    _scaleY = frame.Value.image.Height / (double)RefHeight;
+                    var w = frame.Value.image.Width;
+                    var h = frame.Value.image.Height;
+                    _scaleX = w / (double)RefWidth;
+                    _scaleY = h / (double)RefHeight;
                     frame.Value.image.Dispose();
                     _isScaleInitialized = true;
+
+                    var aspect = (double)w / h;
+                    if (Math.Abs(aspect - ExpectedAspectRatio) > AspectRatioTolerance)
+                        Log?.Invoke($"检测到非 16:9 分辨率 ({w}x{h}, 宽高比 {aspect:F2})，角色槽位和终结技区域的坐标可能不准确");
                 }
 
                 var latest = _sharedDetection.GetLatest(lastSeenId);
@@ -190,7 +196,7 @@ public sealed class ActiveCharacterService : IDisposable, IPipelineStatusProvide
         DetectionResult? activeCharBox = null;
         foreach (var result in results)
         {
-            if (result.Name.Contains(ActiveCharLabel, StringComparison.OrdinalIgnoreCase))
+            if (result.Name.Contains(YoloLabels.ActiveCharacter, StringComparison.OrdinalIgnoreCase))
             {
                 activeCharBox = result;
                 break;
@@ -251,7 +257,7 @@ public sealed class ActiveCharacterService : IDisposable, IPipelineStatusProvide
 
         foreach (var result in results)
         {
-            if (!result.Name.Contains(UltimateChargeLabel, StringComparison.OrdinalIgnoreCase))
+            if (!result.Name.Contains(YoloLabels.UltimateCharge, StringComparison.OrdinalIgnoreCase))
                 continue;
 
             var cx = (int)((result.X + result.Width / 2) / _scaleX);
