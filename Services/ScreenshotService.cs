@@ -5,7 +5,7 @@ using EndFieldFightHelper.Services.Capture;
 
 namespace EndFieldFightHelper.Services;
 
-public class ScreenshotService : IScreenshotService
+public class ScreenshotService : IScreenshotService, IDisposable
 {
     private CaptureMethod? _lastMethod;
 
@@ -31,6 +31,15 @@ public class ScreenshotService : IScreenshotService
     public Bitmap? CaptureWindow(WindowInfo window, CaptureMethod method)
     {
         return CaptureWindow(window.Handle, method);
+    }
+
+    public void Dispose()
+    {
+        if (_lastMethod != null)
+        {
+            ReleaseCaptureMethod(_lastMethod.Value);
+            _lastMethod = null;
+        }
     }
 
     private static void ReleaseCaptureMethod(CaptureMethod method)

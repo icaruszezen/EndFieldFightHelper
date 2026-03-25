@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
+using EndFieldFightHelper.Views;
 using SukiUI.Toasts;
 
 namespace EndFieldFightHelper.ViewModels;
@@ -13,6 +14,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
+    private readonly ScreenshotService _screenshotService;
     private readonly YoloDetectionService _detectionService;
     private readonly OverlayService _overlayService;
     private readonly ActiveCharacterService _activeCharacterService;
@@ -39,6 +41,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var resourceService = new ResourceService();
         var appUpdateService = new AppUpdateService();
 
+        _screenshotService = screenshotService;
         _detectionService = detectionService;
         _overlayService = overlayService;
         _resourceService = resourceService;
@@ -63,18 +66,20 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         var autoAxisService = new AutoAxisService(inputService);
         var autoDodgeService = new AutoDodgeService(
             pipelineService.SharedDetection, inputService,
-            () => SettingsViewModel!.DodgeDelayMs,
-            () => SettingsViewModel!.DodgeSuppressDuringSkill,
+            () => SettingsViewModel.DodgeDelayMs,
+            () => SettingsViewModel.DodgeSuppressDuringSkill,
             () => Math.Max(autoBattleSkillService.LastSkillTimestamp, autoAxisService.LastSkillTimestamp));
 
         BattleAxisViewModel = new BattleAxisViewModel(TeamSetupViewModel.ApplyCharacterOrder);
+        SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService, appUpdateService);
+        OverlayViewModel = new OverlayViewModel();
 
         HomeViewModel = new HomeViewModel(screenshotService, overlayService, pipelineService,
             autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService,
-            autoBattleSkillService, _activeCharacterService, battleStateService, autoAxisService);
-        SettingsViewModel = new SettingsViewModel(toastManager, overlayService, resourceService, appUpdateService);
+            autoBattleSkillService, _activeCharacterService, battleStateService, autoAxisService,
+            new DialogService(), SettingsViewModel, OverlayViewModel, BattleAxisViewModel, TeamSetupViewModel);
+
         ScreenshotViewModel = new ScreenshotViewModel(screenshotService);
-        OverlayViewModel = new OverlayViewModel();
         YoloDetectionViewModel = new YoloDetectionViewModel(screenshotService, detectionService);
         InputTestViewModel = new InputTestViewModel(inputService);
         DebugViewModel = new DebugViewModel(
@@ -83,17 +88,24 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         IPipelineStatusProvider[] allProviders = [pipelineService, battleStateService, autoDodgeService, autoAttackService, autoUltimateService, autoChainSkillService, autoBattleSkillService, autoAxisService, _activeCharacterService];
         TaskStatusViewModel = new TaskStatusViewModel(allProviders);
 
-        HomeViewModel.SetSettingsViewModel(SettingsViewModel);
-        HomeViewModel.SetOverlayViewModel(OverlayViewModel);
+        WireViewModels(allProviders);
+        WireSettingsEvents(pipelineService, inputService);
+
+        CurrentPage = HomeViewModel;
+    }
+
+    private void WireViewModels(IPipelineStatusProvider[] allProviders)
+    {
         HomeViewModel.SetDebugViewModel(DebugViewModel);
-        HomeViewModel.SetBattleAxisViewModel(BattleAxisViewModel);
-        HomeViewModel.SetTeamSetupViewModel(TeamSetupViewModel);
         HomeViewModel.SetPipelineProviders(allProviders);
         SettingsViewModel.AttachOverlay(OverlayViewModel);
 
         var overlayContentSettings = SettingsViewModel.GetOverlayContentSettings();
         HomeViewModel.ApplyOverlayContentSettings(overlayContentSettings);
+    }
 
+    private void WireSettingsEvents(RecognitionPipelineService pipelineService, InputService inputService)
+    {
         SettingsViewModel.ResourcesDownloaded += OnResourcesDownloaded;
 
         inputService.Method = SettingsViewModel.SelectedInputMethod;
@@ -132,7 +144,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
             var modelPath = !string.IsNullOrEmpty(SettingsViewModel.YoloModelPath)
                 ? SettingsViewModel.YoloModelPath
-                : detectionService.ModelPath;
+                : _detectionService.ModelPath;
 
             if (string.IsNullOrEmpty(modelPath) || !System.IO.File.Exists(modelPath))
                 return;
@@ -146,18 +158,18 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             {
                 YoloDetectionViewModel.StatusMessage = "正在加载模型...";
                 await System.Threading.Tasks.Task.Run(() =>
-                    detectionService.LoadModel(modelPath, device, conf, iou));
+                    _detectionService.LoadModel(modelPath, device, conf, iou));
                 YoloDetectionViewModel.UpdateModelStatus();
 
-                if (!device.IsCpu && detectionService.ActiveDevice.IsCpu)
+                if (!device.IsCpu && _detectionService.ActiveDevice.IsCpu)
                 {
                     YoloDetectionViewModel.StatusMessage =
-                        $"GPU 不可用，已回退到 CPU 模式（{detectionService.GpuFallbackReason}）";
+                        $"GPU 不可用，已回退到 CPU 模式（{_detectionService.GpuFallbackReason}）";
                 }
                 else
                 {
                     YoloDetectionViewModel.StatusMessage =
-                        $"模型已加载 ({detectionService.ActiveDevice.Name})";
+                        $"模型已加载 ({_detectionService.ActiveDevice.Name})";
                 }
             }
             catch (System.Exception ex)
@@ -169,8 +181,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
                 isReloading = false;
             }
         };
-
-        CurrentPage = HomeViewModel;
     }
 
     public async Task InitializeAsync()
@@ -208,6 +218,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         SafeDispose(SettingsViewModel);
         SafeDispose(_detectionService);
         SafeDispose(_overlayService);
+        SafeDispose(_screenshotService);
         SafeDispose(_resourceService);
         SafeDispose(_appUpdateService);
     }
