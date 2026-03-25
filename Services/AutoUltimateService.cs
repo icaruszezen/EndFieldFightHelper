@@ -71,10 +71,16 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
         _cts.Cancel();
         try
         {
-            _ultimateTask?.Wait(TimeSpan.FromSeconds(2));
+            if (_ultimateTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+                Log?.Invoke("警告：自动终结技线程未能在超时内结束");
         }
-        catch (AggregateException)
+        catch (AggregateException ex)
         {
+            foreach (var inner in ex.Flatten().InnerExceptions)
+            {
+                if (inner is not OperationCanceledException)
+                    Log?.Invoke($"自动终结技线程异常: {inner.Message}");
+            }
         }
 
         _cts.Dispose();
@@ -88,6 +94,8 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
     {
         long lastSeenId = 0;
         var cooldownUntil = new long[SharedUltimateChargeState.MaxSlots];
+        var wasCharging = new bool[SharedUltimateChargeState.MaxSlots];
+        var chargeReady = new bool[SharedUltimateChargeState.MaxSlots];
 
         while (!token.IsCancellationRequested)
         {
@@ -113,13 +121,25 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
 
                 for (var i = 0; i < activeCount && i < SharedUltimateChargeState.MaxSlots; i++)
                 {
-                    if (isCharging[i] || now < cooldownUntil[i])
+                    if (isCharging[i])
+                    {
+                        wasCharging[i] = true;
+                        chargeReady[i] = false;
+                        continue;
+                    }
+
+                    if (wasCharging[i] && !chargeReady[i])
+                        chargeReady[i] = true;
+
+                    if (!chargeReady[i] || now < cooldownUntil[i])
                         continue;
 
                     var vk = Win32Helper.VK_1 + i;
                     Log?.Invoke($"{i + 1}号位终结技充能完成，发送长按数字键 {i + 1}");
                     await _inputService.SendKeyPressAsync(hWnd, vk, KeyHoldMs);
                     cooldownUntil[i] = Environment.TickCount64 + CooldownMs;
+                    chargeReady[i] = false;
+                    wasCharging[i] = false;
                     Interlocked.Increment(ref _ultimateCounts[i]);
                     break;
                 }

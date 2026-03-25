@@ -413,6 +413,19 @@ public partial class HomeViewModel : ViewModelBase, IDisposable
             return false;
         }
 
+        var unmappedIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var evt in events)
+        {
+            if (!string.IsNullOrEmpty(evt.CharacterId) && FindSlotForCharacter(evt.CharacterId) == null)
+                unmappedIds.Add(evt.CharacterId);
+        }
+
+        if (unmappedIds.Count > 0)
+        {
+            AddLog($"自动打轴启动失败：以下角色未在队伍中配置槽位：{string.Join(", ", unmappedIds)}");
+            return false;
+        }
+
         _autoAxisService.Start(handle, events, FindSlotForCharacter);
         return true;
     }

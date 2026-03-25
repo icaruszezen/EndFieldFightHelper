@@ -39,11 +39,12 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
     private volatile string _currentStatus = "";
     private string? _activeCharacterId;
 
-    private const int NormalAttackIntervalMs = 350;
-    private const int NormalAttackCount = 4;
-    private const int UltimatePauseMs = 2000;
-    private const int UltimateHoldMs = 1500;
     private const int LoopPollMs = 10;
+
+    public int NormalAttackIntervalMs { get; set; } = 350;
+    public int NormalAttackCount { get; set; } = 4;
+    public int UltimateHoldMs { get; set; } = 1500;
+    public int UltimatePauseMs { get; set; } = 2000;
 
     public bool IsRunning
     {
@@ -99,10 +100,16 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
         _cts.Cancel();
         try
         {
-            _axisTask?.Wait(TimeSpan.FromSeconds(3));
+            if (_axisTask?.Wait(TimeSpan.FromSeconds(5)) == false)
+                Log?.Invoke("警告：自动打轴线程未能在超时内结束");
         }
-        catch (AggregateException)
+        catch (AggregateException ex)
         {
+            foreach (var inner in ex.Flatten().InnerExceptions)
+            {
+                if (inner is not OperationCanceledException)
+                    Log?.Invoke($"自动打轴线程异常: {inner.Message}");
+            }
         }
 
         _cts.Dispose();
@@ -186,7 +193,7 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
                 break;
 
             case AxisEventType.Attack:
-                await ExecuteAttackAsync(hWnd, stopwatch, token);
+                await ExecuteAttackAsync(hWnd, evt, stopwatch, token);
                 break;
 
             case AxisEventType.Skill:
@@ -218,13 +225,22 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
         Log?.Invoke($"切换角色：F{slot.Value}");
     }
 
-    private async Task ExecuteAttackAsync(IntPtr hWnd, Stopwatch stopwatch, CancellationToken token)
+    private async Task ExecuteAttackAsync(IntPtr hWnd, AxisTimelineEvent evt,
+        Stopwatch stopwatch, CancellationToken token)
     {
         Win32Helper.GetClientRect(hWnd, out var rect);
         var centerX = rect.Right / 2;
         var centerY = rect.Bottom / 2;
 
-        for (var i = 0; i < NormalAttackCount; i++)
+        var attackCount = Math.Max(1, NormalAttackCount);
+        var intervalMs = NormalAttackIntervalMs;
+
+        if (evt.Duration > 0)
+        {
+            intervalMs = Math.Max(50, (int)(evt.Duration * 1000 / attackCount));
+        }
+
+        for (var i = 0; i < attackCount; i++)
         {
             token.ThrowIfCancellationRequested();
 
@@ -240,11 +256,11 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
 
             await _inputService.SendMouseClickAsync(hWnd, MouseButton.Left, centerX, centerY);
 
-            if (i < NormalAttackCount - 1)
-                await Task.Delay(NormalAttackIntervalMs, token);
+            if (i < attackCount - 1)
+                await Task.Delay(intervalMs, token);
         }
 
-        Log?.Invoke("执行重击（4次普攻）");
+        Log?.Invoke($"执行重击（{attackCount}次普攻，间隔{intervalMs}ms）");
     }
 
     private async Task ExecuteSkillAsync(IntPtr hWnd, string characterId,

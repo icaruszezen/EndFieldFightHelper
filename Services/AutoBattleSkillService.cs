@@ -78,10 +78,16 @@ public sealed class AutoBattleSkillService : IDisposable, IPipelineStatusProvide
         _cts.Cancel();
         try
         {
-            _battleSkillTask?.Wait(TimeSpan.FromSeconds(2));
+            if (_battleSkillTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+                Log?.Invoke("警告：自动战技线程未能在超时内结束");
         }
-        catch (AggregateException)
+        catch (AggregateException ex)
         {
+            foreach (var inner in ex.Flatten().InnerExceptions)
+            {
+                if (inner is not OperationCanceledException)
+                    Log?.Invoke($"自动战技线程异常: {inner.Message}");
+            }
         }
 
         _cts.Dispose();

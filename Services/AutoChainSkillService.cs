@@ -20,7 +20,8 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
     private volatile string? _lastErrorMessage;
 
     private const string ChainSkillPromptName = "连携触发";
-    private const int ChainSkillCooldownMs = 500;
+
+    public int ChainSkillCooldownMs { get; set; } = 300;
 
     public bool IsRunning { get { var cts = _cts; return cts != null && !cts.IsCancellationRequested; } }
     public long ChainSkillCount => Volatile.Read(ref _chainSkillCount);
@@ -64,10 +65,16 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
         _cts.Cancel();
         try
         {
-            _chainSkillTask?.Wait(TimeSpan.FromSeconds(2));
+            if (_chainSkillTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+                Log?.Invoke("警告：自动连携技线程未能在超时内结束");
         }
-        catch (AggregateException)
+        catch (AggregateException ex)
         {
+            foreach (var inner in ex.Flatten().InnerExceptions)
+            {
+                if (inner is not OperationCanceledException)
+                    Log?.Invoke($"自动连携技线程异常: {inner.Message}");
+            }
         }
 
         _cts.Dispose();
