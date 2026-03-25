@@ -1,3 +1,4 @@
+using System;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,7 +11,22 @@ public static class GitHubMirrorHelper
     {
         if (string.IsNullOrEmpty(mirrorPrefix))
             return url;
-        return mirrorPrefix.TrimEnd('/') + "/" + url;
+
+        var trimmed = mirrorPrefix.TrimEnd('/');
+        if (!trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return url;
+
+        return trimmed + "/" + url;
+    }
+
+    /// <summary>
+    /// Returns true if the prefix is a valid HTTPS mirror URL (or empty/null meaning "no mirror").
+    /// </summary>
+    public static bool IsValidMirrorPrefix(string? mirrorPrefix)
+    {
+        if (string.IsNullOrWhiteSpace(mirrorPrefix))
+            return true;
+        return mirrorPrefix.TrimEnd('/').StartsWith("https://", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

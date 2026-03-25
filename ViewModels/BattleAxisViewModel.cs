@@ -181,9 +181,9 @@ public partial class BattleAxisViewModel : ViewModelBase, IDisposable
                 return map;
             });
         }
-        catch
+        catch (Exception ex)
         {
-            /* ignore */
+            System.Diagnostics.Debug.WriteLine($"Failed to load character map from gamedata.json: {ex}");
         }
     }
 

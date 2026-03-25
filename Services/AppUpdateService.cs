@@ -75,6 +75,10 @@ public class AppUpdateService : IDisposable
         {
             return (false, null, $"检查更新失败: 网络错误 ({ex.Message})");
         }
+        catch (JsonException ex)
+        {
+            return (false, null, $"检查更新失败: 响应数据格式异常 ({ex.Message})");
+        }
         catch (Exception ex)
         {
             return (false, null, $"检查更新失败: {ex.Message}");
@@ -200,6 +204,14 @@ public class AppUpdateService : IDisposable
 
             ct.ThrowIfCancellationRequested();
 
+            if (updateInfo.FileSize > 0)
+            {
+                var actualSize = new FileInfo(zipPath).Length;
+                if (actualSize != updateInfo.FileSize)
+                    throw new InvalidOperationException(
+                        $"下载文件大小不匹配（预期 {updateInfo.FileSize} 字节，实际 {actualSize} 字节），文件可能已损坏");
+            }
+
             progress?.Report(("正在解压更新...", 78));
             var extractDir = Path.Combine(tempDir, "extracted");
             ZipFile.ExtractToDirectory(zipPath, extractDir);
@@ -220,7 +232,31 @@ public class AppUpdateService : IDisposable
         }
     }
 
-    private static string EscapeBatPath(string path) => path.Replace("%", "%%");
+    private static string EscapeBatPath(string path)
+    {
+        var sb = new StringBuilder(path.Length + 8);
+        foreach (var c in path)
+        {
+            switch (c)
+            {
+                case '%':
+                    sb.Append("%%");
+                    break;
+                case '^':
+                case '&':
+                case '<':
+                case '>':
+                case '|':
+                case '!':
+                    sb.Append('^').Append(c);
+                    break;
+                default:
+                    sb.Append(c);
+                    break;
+            }
+        }
+        return sb.ToString();
+    }
 
     public void ApplyUpdateAndRestart()
     {

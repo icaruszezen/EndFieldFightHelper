@@ -19,7 +19,7 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
     private long _chainSkillCount;
     private volatile string? _lastErrorMessage;
 
-    private const string ChainSkillPromptName = "连携触发";
+    private const string ChainSkillPromptName = YoloLabels.ChainTrigger;
 
     public int ChainSkillCooldownMs { get; set; } = 300;
 
@@ -63,13 +63,16 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
         if (_cts == null) return;
 
         _cts.Cancel();
+        bool finished;
         try
         {
-            if (_chainSkillTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+            finished = _chainSkillTask?.Wait(TimeSpan.FromSeconds(2)) != false;
+            if (!finished)
                 Log?.Invoke("警告：自动连携技线程未能在超时内结束");
         }
         catch (AggregateException ex)
         {
+            finished = true;
             foreach (var inner in ex.Flatten().InnerExceptions)
             {
                 if (inner is not OperationCanceledException)
@@ -77,17 +80,29 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
             }
         }
 
-        _cts.Dispose();
+        if (finished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            var leakedTask = _chainSkillTask;
+            _ = (leakedTask ?? Task.CompletedTask).ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
+        }
         _cts = null;
         _chainSkillTask = null;
 
         Log?.Invoke("自动连携技线程已停止");
     }
 
+    private const int MaxConsecutiveErrors = 20;
+
     private async Task ChainSkillLoop(IntPtr hWnd, CancellationToken token)
     {
         long lastSeenId = 0;
         long lastChainSkillTimestamp = 0;
+        int consecutiveErrors = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -129,6 +144,8 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
                         Log?.Invoke("检测到连携触发，已发送连携按键");
                     }
                 }
+
+                consecutiveErrors = 0;
             }
             catch (OperationCanceledException)
             {
@@ -136,9 +153,16 @@ public sealed class AutoChainSkillService : IDisposable, IPipelineStatusProvider
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
                 _lastErrorMessage = ex.Message;
-                Log?.Invoke($"自动连携技线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                if (consecutiveErrors >= MaxConsecutiveErrors)
+                {
+                    Log?.Invoke($"自动连携技线程连续 {MaxConsecutiveErrors} 次失败，已停止: {ex.Message}");
+                    break;
+                }
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveErrors - 1, 5)), 5000);
+                Log?.Invoke($"自动连携技线程异常 ({consecutiveErrors}/{MaxConsecutiveErrors}): {ex.Message}");
+                await Task.Delay(backoffMs, token);
             }
         }
     }

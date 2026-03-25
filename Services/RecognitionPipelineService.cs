@@ -156,7 +156,7 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
         else
         {
             var leakedCts = _cts;
-            _ = allTasks.ContinueWith(_ => leakedCts.Dispose());
+            _ = allTasks.ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
         }
         _cts = null;
         _captureTask = null;
@@ -237,7 +237,9 @@ public sealed class RecognitionPipelineService : IDisposable, IPipelineStatusPro
                 Interlocked.Increment(ref _captureErrorCount);
                 _lastErrorMessage = $"截图线程: {ex.Message}";
                 Log?.Invoke($"截图线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                consecutiveNullFrames++;
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveNullFrames - 1, 5)), 5000);
+                await Task.Delay(backoffMs, token);
             }
         }
     }

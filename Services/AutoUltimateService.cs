@@ -69,13 +69,16 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
         if (_cts == null) return;
 
         _cts.Cancel();
+        bool finished;
         try
         {
-            if (_ultimateTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+            finished = _ultimateTask?.Wait(TimeSpan.FromSeconds(2)) != false;
+            if (!finished)
                 Log?.Invoke("警告：自动终结技线程未能在超时内结束");
         }
         catch (AggregateException ex)
         {
+            finished = true;
             foreach (var inner in ex.Flatten().InnerExceptions)
             {
                 if (inner is not OperationCanceledException)
@@ -83,12 +86,23 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
             }
         }
 
-        _cts.Dispose();
+        if (finished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            var leakedTask = _ultimateTask;
+            _ = (leakedTask ?? Task.CompletedTask).ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
+        }
         _cts = null;
         _ultimateTask = null;
 
         Log?.Invoke("自动终结技线程已停止");
     }
+
+    private const int MaxConsecutiveErrors = 20;
 
     private async Task UltimateLoop(IntPtr hWnd, CancellationToken token)
     {
@@ -96,6 +110,7 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
         var cooldownUntil = new long[SharedUltimateChargeState.MaxSlots];
         var wasCharging = new bool[SharedUltimateChargeState.MaxSlots];
         var chargeReady = new bool[SharedUltimateChargeState.MaxSlots];
+        int consecutiveErrors = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -143,6 +158,8 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
                     Interlocked.Increment(ref _ultimateCounts[i]);
                     break;
                 }
+
+                consecutiveErrors = 0;
             }
             catch (OperationCanceledException)
             {
@@ -150,9 +167,16 @@ public sealed class AutoUltimateService : IDisposable, IPipelineStatusProvider
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
                 _lastErrorMessage = ex.Message;
-                Log?.Invoke($"自动终结技线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                if (consecutiveErrors >= MaxConsecutiveErrors)
+                {
+                    Log?.Invoke($"自动终结技线程连续 {MaxConsecutiveErrors} 次失败，已停止: {ex.Message}");
+                    break;
+                }
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveErrors - 1, 5)), 5000);
+                Log?.Invoke($"自动终结技线程异常 ({consecutiveErrors}/{MaxConsecutiveErrors}): {ex.Message}");
+                await Task.Delay(backoffMs, token);
             }
         }
     }

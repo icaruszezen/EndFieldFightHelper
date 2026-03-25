@@ -22,7 +22,7 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
     private long _dodgeCount;
     private volatile string? _lastErrorMessage;
 
-    private const string DodgePromptName = "闪避提示";
+    private const string DodgePromptName = YoloLabels.DodgePrompt;
     private const int DodgeCooldownMs = 300;
     private const int SkillSuppressMs = 500;
 
@@ -69,13 +69,16 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
         if (_cts == null) return;
 
         _cts.Cancel();
+        bool finished;
         try
         {
-            if (_dodgeTask?.Wait(TimeSpan.FromSeconds(2)) == false)
+            finished = _dodgeTask?.Wait(TimeSpan.FromSeconds(2)) != false;
+            if (!finished)
                 Log?.Invoke("警告：自动闪避线程未能在超时内结束");
         }
         catch (AggregateException ex)
         {
+            finished = true;
             foreach (var inner in ex.Flatten().InnerExceptions)
             {
                 if (inner is not OperationCanceledException)
@@ -83,17 +86,29 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
             }
         }
 
-        _cts.Dispose();
+        if (finished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            var leakedTask = _dodgeTask;
+            _ = (leakedTask ?? Task.CompletedTask).ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
+        }
         _cts = null;
         _dodgeTask = null;
 
         Log?.Invoke("自动闪避线程已停止");
     }
 
+    private const int MaxConsecutiveErrors = 20;
+
     private async Task DodgeLoop(IntPtr hWnd, CancellationToken token)
     {
         long lastSeenId = 0;
         long lastDodgeTimestamp = 0;
+        int consecutiveErrors = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -141,6 +156,8 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
                     DodgeTriggered?.Invoke();
                     Log?.Invoke("检测到闪避提示，已发送闪避按键");
                 }
+
+                consecutiveErrors = 0;
             }
             catch (OperationCanceledException)
             {
@@ -148,9 +165,16 @@ public sealed class AutoDodgeService : IDisposable, IPipelineStatusProvider
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
                 _lastErrorMessage = ex.Message;
-                Log?.Invoke($"自动闪避线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                if (consecutiveErrors >= MaxConsecutiveErrors)
+                {
+                    Log?.Invoke($"自动闪避线程连续 {MaxConsecutiveErrors} 次失败，已停止: {ex.Message}");
+                    break;
+                }
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveErrors - 1, 5)), 5000);
+                Log?.Invoke($"自动闪避线程异常 ({consecutiveErrors}/{MaxConsecutiveErrors}): {ex.Message}");
+                await Task.Delay(backoffMs, token);
             }
         }
     }

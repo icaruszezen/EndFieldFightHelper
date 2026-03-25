@@ -177,8 +177,9 @@ public partial class TeamSetupViewModel : ViewModelBase, IDisposable
             foreach (var c in characters)
                 AllCharacters.Add(c);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Failed to load characters from gamedata.json: {ex}");
         }
     }
 

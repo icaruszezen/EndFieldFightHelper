@@ -122,19 +122,30 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         if (_cts == null) return;
 
         _cts.Cancel();
+        bool finished;
         try
         {
-            _monitorTask?.Wait(TimeSpan.FromSeconds(2));
+            finished = _monitorTask?.Wait(TimeSpan.FromSeconds(2)) != false;
         }
         catch (AggregateException)
         {
+            finished = true;
         }
 
         var wasActive = _isBattleActive;
         _isBattleActive = false;
         _areBothMarkersVisible = false;
 
-        _cts.Dispose();
+        if (finished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            var leakedTask = _monitorTask;
+            _ = (leakedTask ?? Task.CompletedTask).ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
+        }
         _cts = null;
         _monitorTask = null;
 
@@ -144,11 +155,14 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
         Log?.Invoke("战斗状态监控线程已停止");
     }
 
+    private const int MaxConsecutiveErrors = 20;
+
     private async Task MonitorLoop(CancellationToken token)
     {
         long lastSeenId = 0;
         var wasBothVisible = false;
         long markerLostTick = 0;
+        int consecutiveErrors = 0;
 
         while (!token.IsCancellationRequested)
         {
@@ -248,6 +262,8 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
                         }
                     }
                 }
+
+                consecutiveErrors = 0;
             }
             catch (OperationCanceledException)
             {
@@ -255,9 +271,16 @@ public sealed class BattleStateService : IDisposable, IPipelineStatusProvider
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
                 _lastErrorMessage = ex.Message;
-                Log?.Invoke($"战斗状态监控线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                if (consecutiveErrors >= MaxConsecutiveErrors)
+                {
+                    Log?.Invoke($"战斗状态监控线程连续 {MaxConsecutiveErrors} 次失败，已停止: {ex.Message}");
+                    break;
+                }
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveErrors - 1, 5)), 5000);
+                Log?.Invoke($"战斗状态监控线程异常 ({consecutiveErrors}/{MaxConsecutiveErrors}): {ex.Message}");
+                await Task.Delay(backoffMs, token);
             }
         }
     }

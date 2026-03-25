@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 using EndFieldFightHelper.Views;
+using Microsoft.Extensions.DependencyInjection;
 using SukiUI.Toasts;
 
 namespace EndFieldFightHelper.ViewModels;
@@ -14,7 +15,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private ViewModelBase? _currentPage;
 
-    private readonly ScreenshotService _screenshotService;
+    private readonly IScreenshotService _screenshotService;
     private readonly YoloDetectionService _detectionService;
     private readonly OverlayService _overlayService;
     private readonly ActiveCharacterService _activeCharacterService;
@@ -34,12 +35,13 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     public MainWindowViewModel(ISukiToastManager toastManager)
     {
-        var screenshotService = new ScreenshotService();
-        var detectionService = new YoloDetectionService();
-        var inputService = new InputService();
-        var overlayService = new OverlayService();
-        var resourceService = new ResourceService();
-        var appUpdateService = new AppUpdateService();
+        var sp = App.Services;
+        var screenshotService = sp.GetRequiredService<IScreenshotService>();
+        var detectionService = sp.GetRequiredService<YoloDetectionService>();
+        var inputService = sp.GetRequiredService<IInputService>();
+        var overlayService = sp.GetRequiredService<OverlayService>();
+        var resourceService = sp.GetRequiredService<ResourceService>();
+        var appUpdateService = sp.GetRequiredService<AppUpdateService>();
 
         _screenshotService = screenshotService;
         _detectionService = detectionService;
@@ -104,7 +106,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         HomeViewModel.ApplyOverlayContentSettings(overlayContentSettings);
     }
 
-    private void WireSettingsEvents(RecognitionPipelineService pipelineService, InputService inputService)
+    private void WireSettingsEvents(RecognitionPipelineService pipelineService, IInputService inputService)
     {
         SettingsViewModel.ResourcesDownloaded += OnResourcesDownloaded;
 
@@ -218,7 +220,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         SafeDispose(SettingsViewModel);
         SafeDispose(_detectionService);
         SafeDispose(_overlayService);
-        SafeDispose(_screenshotService);
+        SafeDispose(_screenshotService as IDisposable);
         SafeDispose(_resourceService);
         SafeDispose(_appUpdateService);
     }

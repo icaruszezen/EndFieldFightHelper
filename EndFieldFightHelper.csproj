@@ -18,6 +18,7 @@
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.11" />
     <PackageReference Include="SukiUI" Version="6.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.11">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>

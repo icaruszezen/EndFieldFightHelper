@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EndFieldFightHelper.Helpers;
 using EndFieldFightHelper.Models;
 using EndFieldFightHelper.Services;
 using SukiUI;
@@ -402,6 +403,13 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
         var prefix = UseGitHubMirror && !string.IsNullOrWhiteSpace(GitHubMirrorUrl)
             ? GitHubMirrorUrl
             : null;
+
+        if (prefix != null && !GitHubMirrorHelper.IsValidMirrorPrefix(prefix))
+        {
+            System.Diagnostics.Debug.WriteLine($"镜像 URL 必须使用 HTTPS 协议，已忽略: {prefix}");
+            prefix = null;
+        }
+
         _appUpdateService.GitHubMirrorPrefix = prefix;
         _resourceService.GitHubMirrorPrefix = prefix;
     }
@@ -504,8 +512,9 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                     ?? AvailableColorThemes[0];
             }
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"Failed to load settings: {ex}");
             if (AvailableColorThemes.Count > 0)
             {
                 SelectedColorTheme = AvailableColorThemes[0];
@@ -807,7 +816,7 @@ public partial class SettingsViewModel : ViewModelBase, IDisposable
                 DownloadProgress = p.Percent;
             });
 
-            await _resourceService.DownloadResourcesAsync(progress, ct);
+            await _resourceService.DownloadResourcesAsync(null, progress, ct);
 
             HasResourceUpdate = false;
             RefreshResourceStatus();

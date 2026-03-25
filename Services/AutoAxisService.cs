@@ -35,12 +35,13 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
 
     private long _eventCount;
     private long _lastSkillTimestamp;
-    private volatile int _pauseRequestMs;
+    private int _pauseRequestMs;
     private volatile string? _lastErrorMessage;
     private volatile string _currentStatus = "";
     private string? _activeCharacterId;
 
     private const int LoopPollMs = 10;
+    private const int MaxConsecutiveErrors = 20;
 
     public int NormalAttackIntervalMs { get; set; } = 350;
     public int NormalAttackCount { get; set; } = 4;
@@ -100,13 +101,16 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
         if (_cts == null) return;
 
         _cts.Cancel();
+        bool finished;
         try
         {
-            if (_axisTask?.Wait(TimeSpan.FromSeconds(5)) == false)
+            finished = _axisTask?.Wait(TimeSpan.FromSeconds(5)) != false;
+            if (!finished)
                 Log?.Invoke("警告：自动打轴线程未能在超时内结束");
         }
         catch (AggregateException ex)
         {
+            finished = true;
             foreach (var inner in ex.Flatten().InnerExceptions)
             {
                 if (inner is not OperationCanceledException)
@@ -114,7 +118,16 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
             }
         }
 
-        _cts.Dispose();
+        if (finished)
+        {
+            _cts.Dispose();
+        }
+        else
+        {
+            var leakedCts = _cts;
+            var leakedTask = _axisTask;
+            _ = (leakedTask ?? Task.CompletedTask).ContinueWith(_ => leakedCts.Dispose(), TaskScheduler.Default);
+        }
         _cts = null;
         _axisTask = null;
         _loopStopwatch?.Stop();
@@ -135,6 +148,7 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
         _loopStopwatch = new Stopwatch();
         _loopStopwatch.Start();
         var eventIndex = 0;
+        int consecutiveErrors = 0;
         _activeCharacterId = null;
 
         if (events.Count > 0 && events[0].Type == AxisEventType.Switch)
@@ -166,6 +180,8 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
                 await ExecuteEventAsync(hWnd, nextEvent, slotMapper, _loopStopwatch, token);
                 Interlocked.Increment(ref _eventCount);
                 eventIndex++;
+
+                consecutiveErrors = 0;
             }
             catch (OperationCanceledException)
             {
@@ -173,9 +189,16 @@ public sealed class AutoAxisService : IDisposable, IPipelineStatusProvider
             }
             catch (Exception ex)
             {
+                consecutiveErrors++;
                 _lastErrorMessage = ex.Message;
-                Log?.Invoke($"自动打轴线程异常: {ex.Message}");
-                await Task.Delay(100, token);
+                if (consecutiveErrors >= MaxConsecutiveErrors)
+                {
+                    Log?.Invoke($"自动打轴线程连续 {MaxConsecutiveErrors} 次失败，已停止: {ex.Message}");
+                    break;
+                }
+                var backoffMs = Math.Min(100 * (1 << Math.Min(consecutiveErrors - 1, 5)), 5000);
+                Log?.Invoke($"自动打轴线程异常 ({consecutiveErrors}/{MaxConsecutiveErrors}): {ex.Message}");
+                await Task.Delay(backoffMs, token);
             }
         }
 
